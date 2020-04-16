@@ -3,7 +3,7 @@
 import os
 
 # os.chdir("/Users/zoehu/Desktop/Python_Learning/act_unequal_dt")
-os.chdir("/Users/chuyiyu/Desktop/Python_Learning/act_unequal_dt")
+os.chdir("/Users/chuyiyu/Desktop/Python_Learning/HFM_IT_Python_Program")
 
 import pandas as pd
 import numpy as np
@@ -23,20 +23,24 @@ import copy
 import Plots
 
 import Benchmark_trajectory as BT
+from statistics import mean
+
+from scipy import stats
 
 # =============================================================================
 # Import Data
 # =============================================================================
 
 # 07.17-08.17 data
-f_book = sorted(glob.glob('Data/MSFT/MSFT_book_0[4-5]*19.csv'), key=lambda x: (x[-6:-4], x[-10:-6]),
+f_book = sorted(glob.glob('Data.nosync/MSFT/MSFT_book_0[4-5]*19.csv'), key=lambda x: (x[-6:-4], x[-10:-6]),
                 reverse=True)  # Datafiles name, Reverse sorted according to dates
-f_msg = sorted(glob.glob('Data/MSFT/MSFT_orders_0[4-5]*19.csv'), key=lambda x: (x[-6:-4], x[-10:-6]), reverse=True)
+f_msg = sorted(glob.glob('Data.nosync/MSFT/MSFT_orders_0[4-5]*19.csv'), key=lambda x: (x[-6:-4], x[-10:-6]), reverse=True)
+
 # f_book = sorted(glob.glob('Data/MSFT/MSFT_book_*.csv'),key = lambda x: (x[-6:-4],x[-10:-6]),reverse=True) # Datafiles name, Reverse sorted according to dates
 # f_msg = sorted(glob.glob('Data/MSFT/MSFT_orders_*.csv'),key = lambda x: (x[-6:-4],x[-10:-6]),reverse=True)
 
-acttime_est = list(range(34200, 34200 + 23400, 3))
-
+acttime_est = list(range(34200+1800, 34200 + 23400 - 1800, 3))
+# acttime_est = list(range(34200+1800, 34200 + 23400 - 1800, 1))
 mismatch = []  # Record data with mismathed book and message
 dateprocessed = []  # Record date been successfully processed
 
@@ -78,12 +82,31 @@ sigmam_rec = []
 sigmatld_rec = []
 sigmanone_rec = []
 
-bk = 'Data/MSFT/MSFT_book_053019.csv'
-msg = 'Data/MSFT/MSFT_orders_053019.csv'
-# f_book = f_book [:1]
-# f_msg = f_msg [:1]
+# bk = 'Data.nosync/MSFT/MSFT_book_041819.csv'
+# msg = 'Data.nosync/MSFT/MSFT_orders_041819.csv'
+# f_book = f_book [:2]
+# f_msg = f_msg [:2]
 
 start_time = time.time()
+
+# check if the conditional expectations are time invariant
+plus_p_t = [[] for _ in range(len(acttime_est))]
+plus_c_t = [[] for _ in range(len(acttime_est))]
+plus_cp_t = [[] for _ in range(len(acttime_est))]
+plus_cc_t = []
+plus_ccp_t = []
+plus_ccpp_t = []
+
+minus_p_t = [[] for _ in range(len(acttime_est))]
+minus_c_t = [[] for _ in range(len(acttime_est))]
+minus_cp_t = [[] for _ in range(len(acttime_est))]
+minus_cc_t = []
+minus_ccp_t = []
+minus_ccpp_t = []
+
+plus_pi_t = [[] for _ in range(len(acttime_est))]
+minus_pi_t = [[] for _ in range(len(acttime_est))]
+pioo_t = [[] for _ in range(len(acttime_est))]
 
 for bk, msg in zip(f_book,f_msg): # each day is an episode
 
@@ -95,9 +118,14 @@ for bk, msg in zip(f_book,f_msg): # each day is an episode
         day_count += 1
         dateprocessed.append(msg[-10:-4])
 
-        message_dat = pd.read_csv(msg,header=1)
-        book_dat = pd.read_csv(bk,header=1)
-        book_dat['Time']=book_dat['Seconds'] + book_dat['Nanoseconds'] * 10 ** -9
+        message_dat = pd.read_csv(msg, header=1)
+        book_dat = pd.read_csv(bk, header=1)
+        message_dat['Time'] = message_dat['Seconds'] + message_dat['Nanoseconds since last second'] * 10 ** -9
+        book_dat['Time'] = book_dat['Seconds'] + book_dat['Nanoseconds'] * 10 ** -9
+        message_dat = message_dat.loc[
+            (34200 + 23400 - 1800 >= message_dat.Time) & (message_dat.Time >= 34200 + 1800)] # Drop the first and last half hour data
+        book_dat = book_dat.loc[
+            (34200 + 23400 - 1800 >= book_dat.Time) & (book_dat.Time >= 34200 + 1800)]
 
         message_dat.Price = message_dat.Price/100
         book_dat.loc[:,["BidPrice1","AskPrice1","BidPrice2","AskPrice2","BidPrice3","AskPrice3","BidPrice4","AskPrice4",
@@ -146,24 +174,26 @@ for bk, msg in zip(f_book,f_msg): # each day is an episode
 # acttime_rec.sort()
 # acttime_est = acttime_rec[::len(f_book)]
 
-        # # # =============================================================================
-        # # # Calculate pi^+ and pi^- and pi(1,1)
-        # # # =============================================================================
-        #
-        # # How many MOs falling in each action intervals
-        # count_plus = np.histogram(MO_Plus.Time, bins=acttime_est)[0]  # left closed right open
-        # count_minus = np.histogram(MO_Minus.Time, bins=acttime_est)[0]
-        # # calculate pi^+,-
-        # pip = len(count_plus.nonzero()[0]) / len(count_plus)
-        # pim = len(count_minus.nonzero()[0]) / len(count_minus)
-        # pioo = len(set(count_plus.nonzero()[0]) & set(count_minus.nonzero()[0]))/len(count_minus)
-        #
-        # pi_rec.append([pip,pim,pioo])
-        #
-        # # See how many orders can arrive between two consecutive actions
-        # sim_arr_plus = count_plus[np.nonzero(count_plus)]
-        # sim_arr_minus = count_minus[np.nonzero(count_minus)]
-        # sim_arr_rec.append([np.mean(sim_arr_plus),np.mean(sim_arr_minus)])
+        # # =============================================================================
+        # # Calculate pi^+ and pi^- and pi(1,1)
+        # # =============================================================================
+
+        # How many MOs falling in each action intervals
+        bin_endpoint = acttime_est.copy()
+        bin_endpoint.append(34200 + 23400 - 1800)
+        count_plus = np.histogram(MO_Plus.Time, bins=bin_endpoint)[0]  # left closed right open
+        count_minus = np.histogram(MO_Minus.Time, bins=bin_endpoint)[0]
+        # calculate pi^+,-
+        pip = len(count_plus.nonzero()[0]) / len(count_plus)
+        pim = len(count_minus.nonzero()[0]) / len(count_minus)
+        pioo = len(set(count_plus.nonzero()[0]) & set(count_minus.nonzero()[0]))/len(count_minus)
+
+        pi_rec.append([pip,pim,pioo])
+
+        # See how many orders can arrive between two consecutive actions
+        sim_arr_plus = count_plus[np.nonzero(count_plus)]
+        sim_arr_minus = count_minus[np.nonzero(count_minus)]
+        sim_arr_rec.append([np.mean(sim_arr_plus),np.mean(sim_arr_minus)])
 
         # # =============================================================================
         # # For each interval [tk,tkk), record size and prices of MOs, Stk, Stkk, MO types P,M or Both
@@ -228,10 +258,24 @@ for bk, msg in zip(f_book,f_msg): # each day is an episode
         for i in range(len(df)):
             if df.loc[i, 'PlusMO_maxp']!='' and df.loc[i, 'MinusMO_minp']=='':
                 df.loc[i, 'TypeMO'] = 'P'
+                plus_pi_t[i].append(1) # check if the conditional expectations are time invariant
+                minus_pi_t[i].append(0)
+                pioo_t[i].append(0)
             elif df.loc[i, 'PlusMO_maxp']=='' and df.loc[i, 'MinusMO_minp']!='':
                 df.loc[i, 'TypeMO'] = 'M'
+                minus_pi_t[i].append(1) # check if the conditional expectations are time invariant
+                plus_pi_t[i].append(0)
+                pioo_t[i].append(0)
             elif df.loc[i, 'PlusMO_maxp'] != '' and df.loc[i, 'MinusMO_minp'] != '':
                 df.loc[i, 'TypeMO'] = 'Both'
+                pioo_t[i].append(1) # check if the conditional expectations are time invariant
+                plus_pi_t[i].append(1)
+                minus_pi_t[i].append(1)
+            else:
+                pioo_t[i].append(0) # check if the conditional expectations are time invariant
+                plus_pi_t[i].append(0)
+                minus_pi_t[i].append(0)
+
 
         # # =============================================================================
         # # Estimate the expectation of each parameters
@@ -303,6 +347,22 @@ for bk, msg in zip(f_book,f_msg): # each day is an episode
         minus_ccp_rec.append(((df.c_minus**2*df.p_minus)[df.p_minus>0]).mean())
         minus_ccpp_rec.append(((df.c_minus**2*df.p_minus**2)[df.p_minus>0]).mean())
 
+        # Store c,p for each tk. # check if the conditional expectations are time invariant
+        for i in range(len(df)):
+            if df.p_plus.iloc[i]>0:
+                plus_p_t[i].append(df.p_plus.iloc[i])
+            if df.cp_plus.iloc[i]>0:
+                plus_cp_t[i].append(df.cp_plus.iloc[i])
+            if df.c_plus.iloc[i]>0:
+                plus_c_t[i].append(df.c_plus.iloc[i])
+
+            if df.p_minus.iloc[i]>0:
+                minus_p_t[i].append(df.p_minus.iloc[i])
+            if df.cp_minus.iloc[i]>0:
+                minus_cp_t[i].append(df.cp_minus.iloc[i])
+            if df.c_minus.iloc[i]>0:
+                minus_c_t[i].append(df.c_minus.iloc[i])
+
         # dltSp_rec.append(df.DeltaP.mean())
         # dltSm_rec.append(df.DeltaM.mean())
         # dltStld_rec.append(df.DeltaTilde.mean())
@@ -317,18 +377,22 @@ for bk, msg in zip(f_book,f_msg): # each day is an episode
 
 t1=time.time() - start_time
 print("--- %s seconds ---" % t1)
-#
-# pip = np.mean([x[0] for x in pi_rec])
-# pim = np.mean([x[1] for x in pi_rec])
-# pioo = np.mean([x[2] for x in pi_rec])
-#
-# np.mean([x[0] for x in sim_arr_rec])
-# np.mean([x[1] for x in sim_arr_rec])
-#
+
+pip = np.mean([x[0] for x in pi_rec])
+pim = np.mean([x[1] for x in pi_rec])
+pioo = np.mean([x[2] for x in pi_rec])
+
+np.mean([x[0] for x in sim_arr_rec])
+np.mean([x[1] for x in sim_arr_rec])
+
 # neg_p_ratio = []
 # for x in pbid_rec:
 #     neg_p_ratio.append(len([k for k in x if k<0])/len(x))
 # np.mean(neg_p_ratio)
+
+print("E(pi+): %.2e" % pip)
+print("E(pi-): %.2e" % pim)
+print("E(pioo): %.2e" % pioo)
 
 print("E(p+): %.2e" % np.mean(plus_p_rec))
 print("E(p-): %.2e" % np.mean(minus_p_rec))
@@ -366,6 +430,101 @@ print("E(ccpp): %.2e" % ((np.mean(plus_ccpp_rec)+np.mean(minus_ccpp_rec))/2))
 # print("Sigma^2_Tilde: %.2f" % (np.mean(sigmatld_rec)/dt))
 # print("Sigma^2_None: %.2f" % (np.mean(sigmanone_rec)/dt))
 
+# check if the conditional expectations are time invariant
+plus_c_t = [x for x in plus_c_t if x!=[]]
+plus_cp_t = [x for x in plus_cp_t if x!=[]]
+plus_p_t = [x for x in plus_p_t if x!=[]]
+
+minus_c_t = [x for x in minus_c_t if x!=[]]
+minus_cp_t = [x for x in minus_cp_t if x!=[]]
+minus_p_t = [x for x in minus_p_t if x!=[]]
+
+plus_cc_t = []
+plus_ccp_t = []
+plus_ccpp_t = []
+
+minus_cc_t = []
+minus_ccp_t = []
+minus_ccpp_t = []
+
+for i in range(len(plus_c_t)):
+    plus_cc_t.append([x**2 for x in plus_c_t[i]])
+    plus_ccp_t.append([x**2*y for x,y in zip(plus_c_t[i],plus_p_t[i])])
+    plus_ccpp_t.append([(x ** 2) * (y**2) for x, y in zip(plus_c_t[i], plus_p_t[i])])
+for i in range(len(minus_c_t)):
+    minus_cc_t.append([x**2 for x in minus_c_t[i]])
+    minus_ccp_t.append([x**2*y for x,y in zip(minus_c_t[i],minus_p_t[i])])
+    minus_ccpp_t.append([(x ** 2) * (y**2) for x, y in zip(minus_c_t[i], minus_p_t[i])])
+
+par = plus_cp_t
+par_avg = [np.mean(x) for x in par if x!=[]]
+plt.plot(par_avg)
+plt.hist(par_avg)
+slope, intercept, r_value, p_value, std_err = stats.linregress(list(range(1,len(par_avg)+1)),par_avg)
+print("Slope: {0:.2e}".format(slope))
+print("Std: {0:.2e}".format(std_err))
+print("p-value: {0:.3f}".format(p_value))
+print("intercept: {0:.2e}".format(intercept))
+
+# mean = sum(par_avg) / len(par_avg)
+# var = sum((i - mean) ** 2 for i in par_avg) / len(par_avg)
+
+# poly = PolynomialFeatures(degree=1)
+# par_time = np.array(list(range(1,len(par_avg)+1))).reshape(-1,1)
+# X_poly = poly.fit_transform(par_time)
+# mod = sm.OLS(par_avg,X_poly)
+# fii = mod.fit()
+# print(fii.summary())
+#
+# plt.plot(par_time, par_avg, color='blue')
+# plt.plot(par_time, fii.predict(poly.fit_transform(par_time)), color='red')
+# plt.ylim([-700, 14000])
+# plt.title('Trajectory of $cp_{t_k}^-$')
+# plt.xlabel('Time Steps')
+# plt.ylabel('$cp_{t_k}^-$')
+# plt.show()
+
+from statsmodels.tsa.stattools import adfuller
+
+par = plus_ccpp_t
+par_avg = [np.mean(x) for x in par if x!=[]]
+result = adfuller(par_avg)
+# print('ADF Statistic: %f' % result[0])
+print('p-value: %.2f' % result[1])
+# print('Critical Values:')
+# for key, value in result[4].items():
+# 	print('\t%s: %.3f' % (key, value))
+
+
+
+
+
+# pi_t is a quadratic function. polynomial regression
+par = pioo_t
+par_avg = [np.mean(x) for x in par if x!=[]]
+par_time = list(range(1,len(par_avg)+1))
+# plt.plot(par_avg)
+
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression
+poly = PolynomialFeatures(degree=2)
+par_time = np.array(par_time).reshape(-1,1)
+X_poly = poly.fit_transform(par_time)
+lin2 = LinearRegression()
+lin2.fit(X_poly, par_avg)
+
+plt.plot(par_time, par_avg, color='blue')
+
+plt.plot(par_time, lin2.predict(poly.fit_transform(par_time)), color='red')
+plt.title('Trajectory of $\pi_{t_k}(1,1)$')
+plt.xlabel('Time Steps')
+plt.ylabel('$\pi_{t_k}(1,1)$')
+plt.show()
+
+import statsmodels.api as sm
+mod = sm.OLS(par_avg,X_poly)
+fii = mod.fit()
+print(fii.summary())
 # =============================================================================
 # Implement on real data
 # =============================================================================
@@ -402,23 +561,25 @@ print("E(ccpp): %.2e" % ((np.mean(plus_ccpp_rec)+np.mean(minus_ccpp_rec))/2))
 #
 # S = 0
 
-# # set parameters as estimated above in dollars
-# order_size = 1000 # Fixed limit order size by the agent
+# # set parameters as estimated above in cents
+# # new p
+# order_size = 1000  # Fixed limit order size by the agent
 #
-# lmbda = 10 # penalty for the inventory
+# #lmbda = 10  # penalty for the inventory
+# lmbda = 0.0001  # penalty for the inventory
 #
-# sigmap = sigmam = 0.000053
-# tldsigma = 0.000107  # (second to second)
+# # sigmap = sigmam = 0.53
+# # tldsigma = 1.07  # (second to second) #(in cents)
 #
-# muop = muom = 52017
-# mutp = mutm = 60981292534  # mut>=muo^2
-# Ep = 0.02
+# muop = muom = 628
+# mutp = mutm = 1.28 * 10 ** 6  # mut>=muo^2
+# Ep = 0.997
 # muoop = muoom = muop * Ep
 # mutop = mutom = mutp * Ep
-# muttp = muttm = 26437383
+# muttp = muttm = 4.15 * 10 ** 6
 #
-# I0 = 0 # Initial inventory
-# W0 = 0 # Initial cashflow
+# I0 = 0  # Initial inventory
+# W0 = 0  # Initial cashflow
 #
 # alphaT = -lmbda
 # gT = 0
@@ -427,28 +588,24 @@ print("E(ccpp): %.2e" % ((np.mean(plus_ccpp_rec)+np.mean(minus_ccpp_rec))/2))
 # pip = 0.42
 # pim = 0.42
 # pioo = 0.24
-#
-# # Deltap>0, Deltam<0
-# Deltap = 0.009
-# Deltam = -0.009
-#
-# S = 0
 
+##############################################################
 # set parameters as estimated above in cents
-# new p
+# new p # new lmbda # new T # No independent assumption between c and p
 order_size = 1000  # Fixed limit order size by the agent
 
-lmbda = 10  # penalty for the inventory
-
+lmbda = 0.001  # penalty for the inventory
+# lmbda = 0  # penalty for the inventory
+# lmbda = 0.0001  # penalty for the inventory
 # sigmap = sigmam = 0.53
 # tldsigma = 1.07  # (second to second) #(in cents)
 
-muop = muom = 628
-mutp = mutm = 1.28 * 10 ** 6  # mut>=muo^2
-Ep = 0.997
+muop = muom = 600
+mutp = mutm = 1.08*10**6  # mut>=muo^2
+Ep = 0.866
 muoop = muoom = muop * Ep
 mutop = mutom = mutp * Ep
-muttp = muttm = 4.15 * 10 ** 6
+muttp = muttm = 1.93*10**6
 
 I0 = 0  # Initial inventory
 W0 = 0  # Initial cashflow
@@ -457,15 +614,13 @@ alphaT = -lmbda
 gT = 0
 hT = 0
 # pip+pim-1V0<=pioo<=pip/\pim
-pip = 0.42
-pim = 0.42
-pioo = 0.24
+pip = 0.38
+pim = 0.385
+pioo = 0.205
 
 # # Deltap>0, Deltam<0
 # Deltap = 0.9
 # Deltam = -0.9
-
-S = 0
 
 
 # def trajectory(alphaT, pip, pim, pioo, Deltap, Deltam, sigmap, sigmam, tldsigma, acttime_res):
@@ -589,7 +744,8 @@ def trajectory_new(alphaT, gT, hT, pioo, pip, pim, muop, muom, mutp, mutm, muoop
 
 
 time = acttime_est.copy()
-time.append(57600)
+# time.append(57600)
+time.append(57600-1800)
 time = time[::-1]
 # alpha_res, h_res, g_res, a1p_res, a2p_res, a3p_res, a1m_res, a2m_res, a3m_res = trajectory(alphaT, pip, pim, pioo, Deltap, Deltam, sigmap, sigmam, tldsigma, time)
 alpha_res, h_res, g_res, a1p_res, a2p_res, a3p_res, a1m_res, a2m_res, a3m_res = trajectory_new(alphaT, gT, hT, pioo,
@@ -597,7 +753,6 @@ alpha_res, h_res, g_res, a1p_res, a2p_res, a3p_res, a1m_res, a2m_res, a3m_res = 
                                                                                                mutp, mutm, muoop, muoom,
                                                                                                mutop, mutom, muttp,
                                                                                                muttm,time)
-
 
 def executed(p_a, p_b, message, order_size):
     # accumulative number of executions during dt time slot given the price of limit orders placed at the beginning of dt
@@ -623,6 +778,30 @@ def executed(p_a, p_b, message, order_size):
 
     return executed_a, executed_b
 
+def Liquid_cost(book_dat,IT):
+    # This function compute the liquidating cost of the terminal inventory at the end of trading horizon
+
+    cost = 0
+    book_timeT = book_dat.iloc[-1]
+
+    if IT>0:
+        i = 1
+        while book_timeT["BidSize"+str(i)]<IT and i<20: # Data only has 20 levels
+            cost += book_timeT["BidSize"+str(i)]*book_timeT["BidPrice"+str(i)]
+            IT -= book_timeT["BidSize"+str(i)]
+            i += 1
+        cost += book_timeT["BidPrice"+str(i)] * IT
+
+    if IT<0:
+        tempIT = -IT
+        i = 1
+        while book_timeT["AskSize"+str(i)]<tempIT and i<20: # Data only has 20 levels
+            cost -= book_timeT["AskSize"+str(i)]*book_timeT["AskPrice"+str(i)]
+            tempIT -= book_timeT["AskSize"+str(i)]
+            i += 1
+        cost -= book_timeT["AskPrice"+str(i)] * tempIT
+
+    return cost
 
 def Benchmark_reward_intraday(l, W0, I0, message_new_dat, book_dat, acttime_est, order_size, a1p_res, a2p_res, a3p_res,
                               a1m_res, a2m_res, a3m_res):
@@ -644,19 +823,20 @@ def Benchmark_reward_intraday(l, W0, I0, message_new_dat, book_dat, acttime_est,
     I = I0
     Il = [I0] * l
 
-    W_list = []  # store W and I at each arriving time
+    # store W and I at each arriving time
+    W_list = []
     Wl_list = [[] for _ in range(l)]
 
     I_list = []
     Il_list = [[] for _ in range(l)]
 
-    price_a = []
-    price_al_list = [[] for _ in range(l)]
+    price_a = [] # Price trajectory for optimal
+    price_al_list = [[] for _ in range(l)] # Price trajectory for 6 benchmarks (level1-level6)
 
     price_b = []
     price_bl_list = [[] for _ in range(l)]
 
-    S = []
+    S = [] # trajectory of asset price
 
     for k in range(len(cum_msg) - 1):
         message = message_new_dat.iloc[cum_msg[k]:cum_msg[k + 1]]
@@ -683,13 +863,13 @@ def Benchmark_reward_intraday(l, W0, I0, message_new_dat, book_dat, acttime_est,
             delta_m = stkk - stk
             executed_a, executed_b = executed(a, b, message, order_size)
             I = i + executed_b - executed_a
-            W = W + executed_a * (a - stkk) + executed_b * (stkk - b) + i * delta_m
+            W = W + executed_a * a - executed_b * b
 
             excuted_abl = []
             for i in range(l):
                 executed_a, executed_b = executed(abl[i][0], abl[i][1], message, order_size)
                 Il[i] = il[i] + executed_b - executed_a
-                Wl[i] = Wl[i] + executed_a * (abl[i][0] - stkk) + executed_b * (stkk - abl[i][1]) + il[i] * delta_m
+                Wl[i] = Wl[i] + executed_a * abl[i][0] - executed_b * abl[i][1]
 
         W_list.append(W)
         I_list.append(I)
@@ -706,14 +886,13 @@ def Benchmark_reward_intraday(l, W0, I0, message_new_dat, book_dat, acttime_est,
 
     df = pd.DataFrame({'CashFlow': W_list, 'Inventory': I_list})
     df_price = pd.DataFrame({'Ask_Price': price_a, 'Bid_Price': price_b})
-    reward = W_list[-1] + stkk * I_list[-1]
+    S.append(stkk)
 
-    res.append([df, df_price, reward])
+    res.append([df, df_price])
 
     for i in range(l):
         res.append([pd.DataFrame({'CashFlow': Wl_list[i], 'Inventory': Il_list[i]}),
-                    pd.DataFrame({'Ask_Price': price_al_list[i], 'Bid_Price': price_bl_list[i]}),
-                    Wl_list[i][-1] + stkk * Il_list[i][-1]])
+                    pd.DataFrame({'Ask_Price': price_al_list[i], 'Bid_Price': price_bl_list[i]})])
 
     return res, S
 
@@ -722,15 +901,19 @@ l = 6
 
 IT = [[] for _ in range(l + 1)]
 WT = [[] for _ in range(l + 1)]
+liquid_cost = [[] for _ in range(l + 1)]
 
 ST = []
 day_count = 0
 #0401,0425,0430
-bk = 'Data/MSFT/MSFT_book_040219.csv'
-msg = 'Data/MSFT/MSFT_orders_040219.csv'
+# bk = 'Data.nosync/MSFT/MSFT_book_041219.csv'
+# msg = 'Data.nosync/MSFT/MSFT_orders_041219.csv'
 #
 # bk ='Data/MSFT/MSFT_book_040119.csv'
 # msg = 'Data/MSFT/MSFT_orders_040119.csv'
+
+# f_book = f_book[:5]
+# f_msg = f_msg[:5]
 
 for bk, msg in zip(f_book, f_msg):  # each day is an episode
 
@@ -744,6 +927,7 @@ for bk, msg in zip(f_book, f_msg):  # each day is an episode
 
         message_dat = pd.read_csv(msg, header=1)
         book_dat = pd.read_csv(bk, header=1)
+        message_dat['Time'] = message_dat['Seconds'] + message_dat['Nanoseconds since last second'] * 10 ** -9
         book_dat['Time'] = book_dat['Seconds'] + book_dat['Nanoseconds'] * 10 ** -9
 
         message_dat.Price = message_dat.Price / 100
@@ -775,16 +959,19 @@ for bk, msg in zip(f_book, f_msg):  # each day is an episode
         MO_Plus = message_new_dat.loc[(message_new_dat['Order type'] == 'MO') & (message_new_dat['Direction'] == 83)]
         MO_Minus = message_new_dat.loc[(message_new_dat['Order type'] == 'MO') & (message_new_dat['Direction'] == 66)]
 
+        ##################
         output = Benchmark_reward_intraday(l, W0, I0, message_new_dat, book_dat, acttime_est, order_size, a1p_res,
                                            a2p_res, a3p_res, a1m_res, a2m_res, a3m_res)
         for i in range(l + 1):
             IT[i].append(output[0][i][0].Inventory.iloc[-1])
             WT[i].append(output[0][i][0].CashFlow.iloc[-1])
+            liquid_cost[i].append(Liquid_cost(book_dat,IT[i][-1])) # liquidating cost
 
         ST.append(output[1][-1])
 
         print('Day Count: ', day_count)
 
+print('lmbda 0')
 
 
 # ax = fig.add_subplot(gs[:, 0])
@@ -808,20 +995,26 @@ for bk, msg in zip(f_book, f_msg):  # each day is an episode
 # plt.legend()
 #
 
--sum(MO_Plus.Volume.iloc[:150])
--sum(MO_Minus.Volume.iloc[:150])
+# -sum(MO_Plus.Volume[(MO_Plus.Time<36250)&(MO_Plus.Time>=36000)])
+# -sum(MO_Minus.Volume[(MO_Minus.Time<36250)&(MO_Minus.Time>=36000)])
+
+-sum(MO_Plus.Volume[(MO_Plus.Time>=54000)])
+-sum(MO_Minus.Volume[(MO_Minus.Time>=54000)])
 
 -sum(MO_Plus.Volume)
 -sum(MO_Minus.Volume)
 
 from labellines import labelLine, labelLines
+import datetime
 # Inventory trajectory within one specific day
 plt.figure(figsize=(20,8))
 for i in reversed(range(1,l+1)):
-    plt.plot(output[0][i][0].Inventory, label='Level'+str(i),color=str(i/(l+1)))
-plt.plot(output[0][0][0].Inventory,label = 'Optimal Control',color='red')
+    plt.plot(acttime_est, output[0][i][0].Inventory, label='Level'+str(i),color=str(i/(l+1)))
+plt.plot(acttime_est,output[0][0][0].Inventory,label = 'Optimal Control',color='red')
 # labelLines(plt.gca().get_lines(),xvals=(2000,6000),fontsize=10,align=False)
 plt.legend()
+locs, labels = plt.xticks()
+plt.xticks(locs,[str(datetime.timedelta(seconds=x)) for x in locs], rotation=20)
 plt.title('Intraday Inventory')
 plt.show()
 
@@ -829,14 +1022,18 @@ plt.show()
 # c = plt.rcParams['axes.prop_cycle'].by_key()['color']  # get default colormap in matlibplot such that each ask bid pair shares same color
 # plt.ylim((-10,10))
 plt.figure(figsize=(20,8))
-plt.ylim((-10,10))
-for i in reversed(range(1,l+1)):
-    plt.plot(output[0][i][1].Ask_Price - output[1], label='Level'+str(i) +'Ask',color=str(i/(l+1)))
-    plt.plot(output[0][i][1].Bid_Price - output[1], label='Level'+str(i) +'Bid',color=str(i/(l+1)))
-plt.plot(output[0][0][1].Ask_Price - output[1], label='Optimal Ask',color='red')
-plt.plot(output[0][0][1].Bid_Price - output[1], label='Optimal Bid',color='red')
-# labelLines(plt.gca().get_lines(),xvals=(7000,7000),fontsize=10)
-plt.legend()
+plt.plot(acttime_est,output[0][0][1].Ask_Price - output[1][:-1], label='Optimal Ask',color='red')
+plt.plot(acttime_est,output[0][0][1].Bid_Price - output[1][:-1], label='Optimal Bid',color='red')
+# for i in range(1,l+1):
+for i in range(1,3):
+    plt.plot(acttime_est,output[0][i][1].Ask_Price - output[1][:-1], label='Level'+str(i) +'Ask',color=str(i/(l+1)))
+    plt.plot(acttime_est,output[0][i][1].Bid_Price - output[1][:-1], label='Level'+str(i) +'Bid',color=str(i/(l+1)))
+lines = plt.gca().get_lines()
+labelLines([lines[0],lines[2],lines[4]], xvals=(acttime_est[0], acttime_est[6000]), zorder=1,  align=False, ha='left', va='top')
+labelLines([lines[1],lines[3],lines[5]], xvals=(acttime_est[0], acttime_est[6000]), zorder=1,  align=False, ha='left', va='bottom')
+# plt.legend(loc = 3)
+locs, labels = plt.xticks()
+plt.xticks(locs,[str(datetime.timedelta(seconds=x)) for x in locs], rotation=20)
 plt.show()
 
 
@@ -878,16 +1075,22 @@ plt.show()
 Vl = []
 for j in range(l+1):
     # Vl.append([IT[j][i] * ST[i] + WT[j][i] - lmbda*IT[j][i]**2 for i in range(len(IT[0]))]) # IT*ST+WT-lambda*IT^2
-    Vl.append([IT[j][i] * ST[i] + WT[j][i] for i in range(len(IT[0]))]) # IT*ST+WT
-    # Vl.append([IT[j][i] for i in range(len(IT[0]))]) # IT
+    # Vl.append([IT[j][i] * ST[i] + WT[j][i] for i in range(len(IT[0]))])  # IT*ST+WT-lambda*IT^2
+    # Vl.append([WT[j][i]+liquid_cost[j][i] for i in range(len(IT[0]))])  # IT*ST+WT-lambda*IT^2
+    # Vl.append([liquid_cost[j][i] for i in range(len(IT[0]))])  # IT*ST+WT-lambda*IT^2
+    # Vl.append([IT[j][i] * ST[i] - lmbda*IT[j][i]**2 for i in range(len(IT[0]))]) # IT*ST+WT-lambda*IT^2
+    # Vl.append([IT[j][i] * ST[i] for i in range(len(IT[0]))]) # IT*ST+WT-lambda*IT^2
+    # Vl.append([WT[j][i] for i in range(len(IT[0]))])
+    Vl.append([IT[j][i] for i in range(len(IT[0]))]) # IT
     # Vl.append([IT[j][i]**2 for i in range(len(IT[0]))])  # IT^2
 mean = [np.mean(x) for x in Vl]
 print('Mean: '+'\t'.join(['{:.2e}'.format(x) for x in mean]))
-var = [np.var(x) for x in Vl]
-print('Var: '+'\t'.join(['{:.2e}'.format(x) for x in var]))
+std = [np.std(x) for x in Vl]
+print('Std: '+'\t'.join(['{:.2e}'.format(x) for x in std]))
 ratio = []
 for i in range(l):
     ratio.append(sum([x>=y for x,y in zip(Vl[0],Vl[i+1])])/len(Vl[0]))
+    # ratio.append(sum([abs(x)<=abs(y) for x, y in zip(Vl[0], Vl[i + 1])]) / len(Vl[0]))
 print('Ratio: '+'\t'.join(['{:.2e}'.format(x) for x in ratio]))
 
 plt.plot(Vl[0],label = 'Optimal Control',color='red')
@@ -897,6 +1100,15 @@ plt.legend()
 plt.title(r'$W_T+I_T*S_T-\lambda*I_T^2$')
 plt.plot()
 
+# Plot W_T vs (S_T-lambda*I_T)*IT over 27 days
+tempW = [WT[0][i] for i in range(len(IT[0]))]
+tempLiqIT = [IT[0][i] * ST[i] - lmbda*IT[0][i]**2 for i in range(len(IT[0]))]
+tempsum = [WT[0][i]+IT[0][i] * ST[i] - lmbda*IT[0][i]**2 for i in range(len(IT[0]))]
+plt.plot(tempW,label = r'$W_T$')
+plt.plot(tempLiqIT,label = r'$(S_T-\lambda I_T)*I_T$')
+plt.plot(tempsum,label = r'$W_T+(S_T-\lambda I_T)*I_T$')
+plt.hlines(0,0,len(tempW))
+plt.legend()
 
 # V_IT = [IT[i] * ST[i] for i in range(len(IT))]
 # V = [V_IT[i] + WT[i] for i in range(len(IT))]
@@ -938,24 +1150,23 @@ plt.plot()
 # fig.tight_layout()  # otherwise the right y-label is slightly clipped
 # plt.show()
 
-#---------- Plot Mid-Price and Inventory of first level strategy in one graph -------------------------------------------------------------------------
+#---------- Plot Mid-Price and Inventory of first level strategy and optimal control in one graph -------------------------------------------------------------------------
 
 fig, ax1 = plt.subplots()
 
-color = 'tab:red'
 ax1.set_xlabel('time (s)')
-ax1.set_ylabel('Mid-Price', color=color)
-ax1.plot(book_new_dat.Time,(book_new_dat.AskPrice1+book_new_dat.BidPrice1)/2, color=color)
-ax1.tick_params(axis='y', labelcolor=color)
+ax1.set_ylabel('Mid-Price', color='green')
+ax1.plot(book_new_dat.Time,(book_new_dat.AskPrice1+book_new_dat.BidPrice1)/2, color='green',label = r'$S_T$')
+ax1.tick_params(axis='y', labelcolor='green')
 
 ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
 
-color = 'tab:green'
-ax2.set_ylabel('Inventory', color=color)  # we already handled the x-label with ax1
-ax2.plot(acttime_est,output[0][1][0].Inventory, color=color,label = 'Level 1')
-ax2.plot(acttime_est,output[0][0][0].Inventory, color='blue',label = 'Optimal Control')
-ax2.tick_params(axis='y', labelcolor=color)
-ax2.legend()
+ax2.set_ylabel('Inventory', color='red')  # we already handled the x-label with ax1
+for i in reversed(range(1,l+1)):
+    ax2.plot(acttime_est, output[0][i][0].Inventory, label='Level'+str(i),color=str(i/(l+1)))
+ax2.plot(acttime_est, output[0][0][0].Inventory,label = 'Optimal Control',color='red')
+ax2.tick_params(axis='y', labelcolor='red')
+ax2.legend(framealpha=0.3,loc = 4)
 
 fig.tight_layout()  # otherwise the right y-label is slightly clipped
 plt.show()
@@ -976,4 +1187,5 @@ plt.show()
 #     delta_S.extend([x-(book_new_dat.iloc[cum_S[k]-1].AskPrice1+book_new_dat.iloc[cum_S[k]-1].BidPrice1)/2 for x in S_dt])
 #
 # sum([x>0 for x in delta_S])/len(delta_S)
-
+plt.plot(output[0][0][0].CashFlow)
+plt.hlines(0,0,len(output[0][0][0].CashFlow))
