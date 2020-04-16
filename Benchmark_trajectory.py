@@ -5,6 +5,8 @@ import datetime
 from labellines import labelLine, labelLines
 from matplotlib.ticker import FormatStrFormatter
 
+from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
+
 
 def Denominator(alpha, pioo, pip, pim, muop, muom, mutp, mutm):
     return (pioo * alpha * muop * muom) ** 2 - pip * pim * (alpha * mutp - muop) * (alpha * mutm - muom)
@@ -256,13 +258,88 @@ def trajectory_new(S, alphaT,gT,hT, I, pip, pim, pioo,muop, muom, mutp, mutm, mu
     a3m_res.reverse()
     return alpha_res, h_res, g_res, a_res, b_res, a1p_res, a2p_res, a3p_res, a1m_res, a2m_res, a3m_res
 
+# def trajectory_new_v2(S, alphaT,gT,hT, I, pip_MA, pim_MA, pioo_MA,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, acttime_est):
+def trajectory_new_v2(alphaT,gT,hT, pip_MA, pim_MA, pioo_MA,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, acttime_est): # new p # pi_t
+    # pip_MA, pim_MA, pioo_MA are moving average of pi^+- and pioo (MA)
+    alpha_res = []
+    g_res = []
+    h_res = []
 
-####################################################################################################
+    a_res = []
+    b_res = []
+
+    a1p_res = []
+    a2p_res = []
+    a3p_res = []
+    a1m_res = []
+    a2m_res = []
+    a3m_res = []
+
+    alpha = alphaT
+    g = gT
+    h = hT
+    for k in range(1,len(acttime_est) + 1):
+        a1p = A1p(alpha, pioo_MA.iloc[-k], pip_MA.iloc[-k], pim_MA.iloc[-k], muop, muom, mutp, mutm)
+        a1m = A1m(alpha, pioo_MA.iloc[-k], pip_MA.iloc[-k], pim_MA.iloc[-k], muop, muom, mutp, mutm)
+        a2p = A2p(alpha, pioo_MA.iloc[-k], pip_MA.iloc[-k], pim_MA.iloc[-k], muop, muom, mutp, mutm, muoop, muoom, mutop, mutom)
+        a2m = A2m(alpha, pioo_MA.iloc[-k], pip_MA.iloc[-k], pim_MA.iloc[-k], muop, muom, mutp, mutm, muoop, muoom, mutop, mutom)
+        # a3p = A3p(alpha, pioo, pip, pim, muop, muom, mutp, mutm, Deltap, Deltam, h)
+        # a3m = A3m(alpha, pioo, pip, pim, muop, muom, mutp, mutm, Deltap, Deltam, h)
+        a3p = A3p_new(alpha, pioo_MA.iloc[-k], pip_MA.iloc[-k], pim_MA.iloc[-k], muop, muom, mutp, mutm,h)
+        a3m = A3m_new(alpha, pioo_MA.iloc[-k], pip_MA.iloc[-k], pim_MA.iloc[-k], muop, muom, mutp, mutm, h)
+
+        a1p_res.append(a1p)
+        a2p_res.append(a2p)
+        a3p_res.append(a3p)
+        a1m_res.append(a1m)
+        a2m_res.append(a2m)
+        a3m_res.append(a3m)
+
+        alpha = alpha_updt(alpha, pioo_MA.iloc[-k], pip_MA.iloc[-k], pim_MA.iloc[-k], muop, muom, mutp, mutm, a1p, a1m)
+        # h = h_updt(alpha, pioo, pip, pim, muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, Deltap, Deltam, h, a1p,
+        #            a1m,
+        #            a2p, a2m, a3p, a3m)
+        h = h_updt_new(alpha, pioo_MA.iloc[-k], pip_MA.iloc[-k], pim_MA.iloc[-k], muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, h, a1p,
+                   a1m,a2p, a2m, a3p, a3m)# new p
+
+        # g = g_updt(alpha, pioo, pip, pim, muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, Deltap,
+        #            Deltam,
+        #            h, g, sigmap, sigmam, tldsigma, time[k], time[k + 1], a2p, a2m, a3p, a3m)
+        g = g_updt_new(alpha, pioo_MA.iloc[-k], pip_MA.iloc[-k], pim_MA.iloc[-k], muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm,
+                   h, g,  a2p, a2m, a3p, a3m) # new p
+
+        # a, b = optimalstrategy(S, I, a1p, a1m, a2p, a2m, a3p, a3m)
+
+        alpha_res.append(alpha)
+        h_res.append(h)
+        g_res.append(g)
+
+        # a_res.append(a)
+        # b_res.append(b)
+
+    alpha_res.reverse()
+    h_res.reverse()
+    g_res.reverse()
+
+    a_res.reverse()
+    b_res.reverse()
+
+    a1p_res.reverse()
+    a2p_res.reverse()
+    a3p_res.reverse()
+    a1m_res.reverse()
+    a2m_res.reverse()
+    a3m_res.reverse()
+    # return alpha_res, h_res, g_res, a_res, b_res, a1p_res, a2p_res, a3p_res, a1m_res, a2m_res, a3m_res
+    return alpha_res, h_res, g_res, a1p_res, a2p_res, a3p_res, a1m_res, a2m_res, a3m_res
+
+
+# ###################################################################################################
 # # Pi(1,1)=0. Different I
 # # new p
 #
-# T = 23400
-# lmbda = 10
+# T = 19800
+# lmbda = 0.001
 # alphaT = -lmbda
 # gT = 0
 # hT = 0
@@ -276,7 +353,7 @@ def trajectory_new(S, alphaT,gT,hT, I, pip, pim, pioo,muop, muom, mutp, mutm, mu
 # Ep = 1
 # muoop = muoom = muop * Ep
 # mutop = mutom = mutp * Ep
-# muttp = muttm = 4*10**6
+# muttp = muttm = 2*10**6
 #
 # # # Deltap>0, Deltam<0
 # # Deltap = 5
@@ -287,6 +364,7 @@ def trajectory_new(S, alphaT,gT,hT, I, pip, pim, pioo,muop, muom, mutp, mutm, mu
 # time = np.linspace(0, T, T / 3 + 1)[::-1]
 # S = 0
 # I = [-2000,-1500,-1000, -500, 0, 500, 1000,1500,2000]
+# # I = [-15000,-10000, -5000,-1000, 0,1000, 5000, 10000,15000]
 #
 # time_plot = list(time)
 # time_plot.reverse()
@@ -297,41 +375,75 @@ def trajectory_new(S, alphaT,gT,hT, I, pip, pim, pioo,muop, muom, mutp, mutm, mu
 #     res = trajectory_new(S, alphaT, gT, hT, I[i], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
 #     ab_res.append([res[3], res[4]])
 #
-# fig = plt.figure(tight_layout=True, figsize=(20, 8))
-# gs = gridspec.GridSpec(2, 2,width_ratios=[1, 2])
+# # fig = plt.figure(tight_layout=True, figsize=(20, 8))
+# # gs = gridspec.GridSpec(2, 2,width_ratios=[1, 2])
+# #
+# # c = plt.rcParams['axes.prop_cycle'].by_key()[
+# #     'color']  # get default colormap in matlibplot such that each ask bid pair shares same color
+# #
+# # ax = fig.add_subplot(gs[:, 0])
+# # for i in range(len(I)):
+# #     ax.plot(time_plot[:-1], ab_res[i][0], color=c[i])
+# #     ax.plot(time_plot[:-1], ab_res[i][1], color=c[i])
+# # ax.set_ylabel('Bid-Ask Price')
+# # ax.set_xlabel('Time')
+# # xticks = ax.get_xticks()
+# # # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks]) # revise x ticks
+# #
+# # ax = fig.add_subplot(gs[0, 1])
+# # for j in range(len(I)):
+# #     ax.plot(time_plot[-200:], ab_res[j][0][-200:],label = 'I = %d' % I[j])
+# # labelLines(ax.get_lines(),xvals=(T-25,T-20),zorder=2.5,fontsize=8)
+# # ax.set_ylabel('Ask Price')
+# # ax.set_xlabel('Time')
+# # xticks = ax.get_xticks()
+# # # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # ax = fig.add_subplot(gs[1, 1])
+# # for j in range(len(I)):
+# #     ax.plot(time_plot[-200:], ab_res[j][1][-200:],label = 'I = %d' % I[j])
+# # labelLines(ax.get_lines(),xvals=(T-25,T-20),zorder=2.5,fontsize=8)
+# # ax.set_ylabel('Bid Price')
+# # ax.set_xlabel('Time')
+# # xticks = ax.get_xticks()
+# # # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# # fig.align_labels()  # same as fig.align_xlabels(); fig.align_ylabels()
+# # plt.show()
 #
-# c = plt.rcParams['axes.prop_cycle'].by_key()[
-#     'color']  # get default colormap in matlibplot such that each ask bid pair shares same color
+# fig = plt.figure(tight_layout=True, figsize=(15,6))
+# ax1 = fig.add_axes([0.05, 0.5, .95, 0.4],
+#                    xticklabels=[])
+# ax2 = fig.add_axes([0.05, 0.1, .95, 0.4])
 #
-# ax = fig.add_subplot(gs[:, 0])
-# for i in range(len(I)):
-#     ax.plot(time_plot[:-1], ab_res[i][0], color=c[i])
-#     ax.plot(time_plot[:-1], ab_res[i][1], color=c[i])
-# ax.set_ylabel('Bid-Ask Price')
-# ax.set_xlabel('Time')
-# xticks = ax.get_xticks()
-# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-#
-# ax = fig.add_subplot(gs[0, 1])
 # for j in range(len(I)):
-#     ax.plot(time_plot[-100:], ab_res[j][0][-100:],label = 'I = %d' % I[j])
-# labelLines(ax.get_lines(),xvals=(23350,23350),zorder=2.5)
-# ax.set_ylabel('Ask Price')
-# ax.set_xlabel('Time')
-# xticks = ax.get_xticks()
-# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
+#     ax1.plot(time_plot[-100:], ab_res[j][0][-100:],label = 'I = %d' % I[j])
+# labelLines(ax1.get_lines(),xvals=(T-25,T-20),zorder=2.5,fontsize=8)
+# ax1.set_ylabel('Ask Spread')
 #
-# ax = fig.add_subplot(gs[1, 1])
 # for j in range(len(I)):
-#     ax.plot(time_plot[-100:], ab_res[j][1][-100:],label = 'I = %d' % I[j])
-# labelLines(ax.get_lines(),xvals=(23350,23350),zorder=2.5)
-# ax.set_ylabel('Bid Price')
-# ax.set_xlabel('Time')
-# xticks = ax.get_xticks()
-# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-#
-# fig.align_labels()  # same as fig.align_xlabels(); fig.align_ylabels()
+#     ax2.plot(time_plot[-100:], ab_res[j][1][-100:],label = 'I = %d' % I[j])
+# labelLines(ax2.get_lines(),xvals=(T-25,T-20),zorder=2.5,fontsize=8)
+# ax2.set_ylabel('Bid Spread')
+# ax2.set_xlabel('Time')
+# xticks = ax2.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
+# ax2.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# # fig.align_labels()  # same as fig.align_xlabels(); fig.align_ylabels()
 # plt.show()
+#
+# fig, ax = plt.subplots(tight_layout=True, figsize=(15,3))
+# for j in range(len(I)):
+#     ax.plot(time_plot[1:], [x-y for x,y in zip(ab_res[j][0],ab_res[j][1])])
+# ax.set_ylabel('Bid-Ask Spread')
+# ax.set_xlabel('Time')
+# xticks = ax.get_xticks()
+# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# # fig.align_labels()  # same as fig.align_xlabels(); fig.align_ylabels()
+# plt.show()
+#
 
 # ######################################################################################
 # # Pi(1,1)=0. Different penalty
@@ -412,13 +524,13 @@ def trajectory_new(S, alphaT,gT,hT, I, pip, pim, pioo,muop, muom, mutp, mutm, mu
 #
 # plt.show()
 
-######################################################################################
-# Pi(1,1)=0. Different penalty. New Plot
+# #####################################################################################
+# # Pi(1,1)=0. Different penalty. New Plot
 #
-# T = 23400
-# lmbda = [0,0.1,1,10,100]
+# T = 19800
+# lmbda = [0,0.001,0.01]
 # alphaT = [-x for x in lmbda]
-# I= [-1500,-1000,-500,500,1000,1500]
+# I= [500,-500,1000,-1000,1500,-1500]
 # gT = 0
 # hT = 0
 # # pip+pim-1V0<=pioo<=pip/\pim
@@ -431,7 +543,7 @@ def trajectory_new(S, alphaT,gT,hT, I, pip, pim, pioo,muop, muom, mutp, mutm, mu
 # Ep = 1
 # muoop = muoom = muop * Ep
 # mutop = mutom = mutp * Ep
-# muttp = muttm = 4*10**6
+# muttp = muttm = 2*10**6
 #
 # # # Deltap>0, Deltam<0
 # # Deltap = 5
@@ -444,169 +556,408 @@ def trajectory_new(S, alphaT,gT,hT, I, pip, pim, pioo,muop, muom, mutp, mutm, mu
 #
 # time_plot = list(time)
 # time_plot.reverse()
+# #
+# # fig = plt.figure(tight_layout=True,figsize=(20, 8))
+# # gs = gridspec.GridSpec(3, 2)
+# #
+# # c = plt.rcParams['axes.prop_cycle'].by_key()[
+# #     'color']  # get default colormap in matlibplot such that each ask bid pair shares same color
+# # # I = -1500
+# # ax = fig.add_subplot(gs[0, 0])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[0], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(),xvals=(T-50,T-50),zorder=2)
+# # ax.set_ylabel('Ask Price')
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Ask, Inventory = %d' % I[0])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # # for i in reversed(range(len(alphaT))):
+# # #     temp = trajectory_new(S, alphaT[i],gT,hT, I[0], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# # #     plt.plot(time_plot[:-1][-100:], [x-y for x,y in zip(temp[3][-100:],temp[4][-100:])], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # # plt.show()
+# #
+# # ax = fig.add_subplot(gs[0, 1])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[0], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(),xvals=(T-50,T-50),zorder=2)
+# # ax.set_ylabel('Bid Price')
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Bid, Inventory = %d' % I[0])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # # I = -1000
+# # ax = fig.add_subplot(gs[1, 0])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[1], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i],label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(), xvals=(T-50,T-50), zorder=2)
+# # ax.set_ylabel('Ask Price')
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Ask, Inventory = %d' % I[1])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # ax = fig.add_subplot(gs[1, 1])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[1], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i],label = '$\lambda$ = 0, 0.001, 0.01')
+# # labelLines(ax.get_lines(), xvals=(T-100,T-100), zorder=2)
+# # ax.set_ylabel('Bid Price')
+# # ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Bid, Inventory = %d' % I[1])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # # for i in reversed(range(len(alphaT))):
+# # #     temp = trajectory_new(S, alphaT[i],gT,hT, I[1], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# # #     plt.plot(time_plot[:-1][-100:], [x-y for x,y in zip(temp[3][-100:],temp[4][-100:])], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # # plt.show()
+# #
+# # # ask I = -500
+# # ax = fig.add_subplot(gs[2, 0])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[2], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(),xvals=(T-50,T-50),zorder=2)
+# # ax.set_ylabel('Ask Price')
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Ask, Inventory = %d' % I[2])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # ax = fig.add_subplot(gs[2, 1])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[2], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(),xvals=(T-50,T-50),zorder=2)
+# # ax.set_ylabel('Bid Price')
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Bid, Inventory = %d' % I[2])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # fig.align_labels()  # same as fig.align_xlabels(); fig.align_ylabels()
+# #
+# # plt.show()
+# #
+# #
+# # fig = plt.figure(tight_layout=True,figsize=(20,8))
+# # gs = gridspec.GridSpec(3, 2)
+# #
+# # c = plt.rcParams['axes.prop_cycle'].by_key()[
+# #     'color']  # get default colormap in matlibplot such that each ask bid pair shares same color
+# #
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[2], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     plt.plot(time_plot[:-1][-100:], [x-y for x,y in zip(temp[3][-100:],temp[4][-100:])], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # plt.show()
+# #
+# # # I = 500
+# # ax = fig.add_subplot(gs[0, 0])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[3], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(),xvals=(T-50,T-50),zorder=2)
+# # ax.set_ylabel('Ask Price')
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Ask, Inventory = %d' % I[3])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # ax = fig.add_subplot(gs[0, 1])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[3], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(),xvals=(T-50,T-50),zorder=2)
+# # ax.set_ylabel('Bid Price')
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Bid, Inventory = %d' % I[3])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # # I = 1000
+# # ax = fig.add_subplot(gs[1,0])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[4], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i],label = '$\lambda$ = 0, 0.001, 0.01')
+# # labelLines(ax.get_lines(), xvals=(T-50,T-50), zorder=2)
+# # ax.set_ylabel('Ask Price')
+# # ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Ask, Inventory = %d' % I[4])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # ax = fig.add_subplot(gs[1,1])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[4], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i],label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(), xvals=(T-50,T-50), zorder=2)
+# # ax.set_ylabel('Bid Price')
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Bid, Inventory = %d' % I[4])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # # ask I = 1500
+# # ax = fig.add_subplot(gs[2,0])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[5], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(),xvals=(T-50,T-50),zorder=2)
+# # ax.set_ylabel('Ask Price')
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Ask, Inventory = %d' % I[5])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # ax = fig.add_subplot(gs[2,1])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[5], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(),xvals=(T-50,T-50),zorder=2)
+# # ax.set_ylabel('Bid Price')
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Bid, Inventory = %d' % I[5])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# #
+# #
+# # fig.align_labels()  # same as fig.align_xlabels(); fig.align_ylabels()
+# #
+# # plt.show()
+# #
 #
-# fig = plt.figure(tight_layout=True,figsize=(20, 8))
-# gs = gridspec.GridSpec(3, 2)
 #
-# c = plt.rcParams['axes.prop_cycle'].by_key()[
-#     'color']  # get default colormap in matlibplot such that each ask bid pair shares same color
-# # I = -1500
-# ax = fig.add_subplot(gs[0, 0])
-# for i in reversed(range(len(alphaT))):
-#     temp = trajectory_new(S, alphaT[i],gT,hT, I[0], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-#     ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label = '$\lambda$ = %.1f' % -alphaT[i])
-# labelLines(ax.get_lines(),xvals=(23250,23280),zorder=2)
-# ax.set_ylabel('Ask Price')
-# ax.set_xlabel('Time')
-# ax.set_title('Optimal Ask, Inventory = %d' % I[0])
-# xticks = ax.get_xticks()
-# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-#
-# ax = fig.add_subplot(gs[0, 1])
-# for i in reversed(range(len(alphaT))):
-#     temp = trajectory_new(S, alphaT[i],gT,hT, I[0], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-#     ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label = '$\lambda$ = %.1f' % -alphaT[i])
-# labelLines(ax.get_lines(),xvals=(23250,23280),zorder=2)
-# ax.set_ylabel('Bid Price')
-# ax.set_xlabel('Time')
-# ax.set_title('Optimal Bid, Inventory = %d' % I[0])
-# xticks = ax.get_xticks()
-# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-#
-# # I = -1000
-# ax = fig.add_subplot(gs[1, 0])
-# for i in reversed(range(len(alphaT))):
-#     temp = trajectory_new(S, alphaT[i],gT,hT, I[1], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-#     ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i],label = '$\lambda$ = %.1f' % -alphaT[i])
-# labelLines(ax.get_lines(), xvals=(23275, 23275), zorder=2)
-# ax.set_ylabel('Ask Price')
-# ax.set_xlabel('Time')
-# ax.set_title('Optimal Ask, Inventory = %d' % I[1])
-# xticks = ax.get_xticks()
-# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-#
-# ax = fig.add_subplot(gs[1, 1])
-# for i in reversed(range(len(alphaT))):
-#     temp = trajectory_new(S, alphaT[i],gT,hT, I[1], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-#     ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i],label = '$\lambda$ = 0, 0.01, 1, 10, 100')
-# labelLines(ax.get_lines(), xvals=(23280, 23280), zorder=2)
-# ax.set_ylabel('Bid Price')
-# ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-# ax.set_xlabel('Time')
-# ax.set_title('Optimal Bid, Inventory = %d' % I[1])
-# xticks = ax.get_xticks()
-# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-#
-# # ask I = -500
-# ax = fig.add_subplot(gs[2, 0])
-# for i in reversed(range(len(alphaT))):
-#     temp = trajectory_new(S, alphaT[i],gT,hT, I[2], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-#     ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label = '$\lambda$ = %.1f' % -alphaT[i])
-# labelLines(ax.get_lines(),xvals=(23250,23280),zorder=2)
-# ax.set_ylabel('Ask Price')
-# ax.set_xlabel('Time')
-# ax.set_title('Optimal Ask, Inventory = %d' % I[2])
-# xticks = ax.get_xticks()
-# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-#
-# ax = fig.add_subplot(gs[2, 1])
-# for i in reversed(range(len(alphaT))):
-#     temp = trajectory_new(S, alphaT[i],gT,hT, I[2], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-#     ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label = '$\lambda$ = %.1f' % -alphaT[i])
-# labelLines(ax.get_lines(),xvals=(23250,23280),zorder=2)
-# ax.set_ylabel('Bid Price')
-# ax.set_xlabel('Time')
-# ax.set_title('Optimal Bid, Inventory = %d' % I[2])
-# xticks = ax.get_xticks()
-# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-#
-# fig.align_labels()  # same as fig.align_xlabels(); fig.align_ylabels()
-#
-# plt.show()
-#
-#
-# fig = plt.figure(tight_layout=True,figsize=(20,8))
-# gs = gridspec.GridSpec(3, 2)
-#
-# c = plt.rcParams['axes.prop_cycle'].by_key()[
-#     'color']  # get default colormap in matlibplot such that each ask bid pair shares same color
+# fig = plt.figure(figsize=(20,12))
+# outer = gridspec.GridSpec(3, 2, wspace=0.2, hspace=0.3)
 #
 # # I = 500
-# ax = fig.add_subplot(gs[0, 0])
-# for i in reversed(range(len(alphaT))):
-#     temp = trajectory_new(S, alphaT[i],gT,hT, I[3], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-#     ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label = '$\lambda$ = %.1f' % -alphaT[i])
-# labelLines(ax.get_lines(),xvals=(23250,23280),zorder=2)
-# ax.set_ylabel('Ask Price')
-# ax.set_xlabel('Time')
-# ax.set_title('Optimal Ask, Inventory = %d' % I[3])
-# xticks = ax.get_xticks()
-# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
+# inner = gridspec.GridSpecFromSubplotSpec(2, 1,subplot_spec=outer[0])
 #
-# ax = fig.add_subplot(gs[0, 1])
+# ax1 = plt.Subplot(fig, inner[0])
+# for i in range(len(alphaT)):
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[0], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax1.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax1.get_lines(), xvals=(T - 20, T - 20), zorder=2,fontsize = 5)
+# # ax1.legend()
+# ax1.set_ylabel('Ask Spread')
+# ax1.get_xaxis().set_visible(False)
+# ax1.set_title('Optimal Ask and Bid, Inventory = %d' % I[0])
+# ax1.set_ylim(0,1.9)
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# fig.add_subplot(ax1)
+#
+# ax2 = plt.Subplot(fig, inner[1],sharex = ax1)
 # for i in reversed(range(len(alphaT))):
-#     temp = trajectory_new(S, alphaT[i],gT,hT, I[3], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-#     ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label = '$\lambda$ = %.1f' % -alphaT[i])
-# labelLines(ax.get_lines(),xvals=(23250,23280),zorder=2)
-# ax.set_ylabel('Bid Price')
-# ax.set_xlabel('Time')
-# ax.set_title('Optimal Bid, Inventory = %d' % I[3])
-# xticks = ax.get_xticks()
-# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[0], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax2.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax2.get_lines(), xvals=(T - 50, T - 50), zorder=2)
+# ax2.legend()
+# ax2.set_ylabel('Bid Spread')
+# ax2.set_xlabel('Time')
+# # ax2.set_title('Optimal Ask and Bid, Inventory = %d' % I[j])
+# xticks = ax2.get_xticks()
+# ax2.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# ax2.set_ylim(-1.9, -0)
+# fig.add_subplot(ax2)
+# plt.subplots_adjust(hspace=.0)
+#
+# # I = -500
+# inner = gridspec.GridSpecFromSubplotSpec(2, 1,subplot_spec=outer[1])
+#
+# ax1 = plt.Subplot(fig, inner[0])
+# for i in range(len(alphaT)):
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[1], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax1.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax1.get_lines(), xvals=(T - 20, T - 20), zorder=2,fontsize = 5)
+# # ax1.legend()
+# ax1.set_ylabel('Ask Spread')
+# ax1.get_xaxis().set_visible(False)
+# ax1.set_title('Optimal Ask and Bid, Inventory = %d' % I[1])
+# ax1.set_ylim(0,1.9)
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# fig.add_subplot(ax1)
+#
+# ax2 = plt.Subplot(fig, inner[1],sharex = ax1)
+# for i in reversed(range(len(alphaT))):
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[1], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax2.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax2.get_lines(), xvals=(T - 50, T - 50), zorder=2)
+# ax2.legend()
+# ax2.set_ylabel('Bid Spread')
+# ax2.set_xlabel('Time')
+# # ax2.set_title('Optimal Ask and Bid, Inventory = %d' % I[j])
+# xticks = ax2.get_xticks()
+# ax2.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# ax2.set_ylim(-1.9, -0)
+# fig.add_subplot(ax2)
+# plt.subplots_adjust(hspace=.0)
 #
 # # I = 1000
-# ax = fig.add_subplot(gs[1,0])
+# inner = gridspec.GridSpecFromSubplotSpec(2, 1,subplot_spec=outer[2])
+#
+# ax1 = plt.Subplot(fig, inner[0])
+# for i in range(len(alphaT)):
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[2], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax1.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[3], label = '$\lambda$ = 0, 0.001, 0.01')
+# labelLines(ax1.get_lines(), xvals=(T - 70, T - 70), zorder=2)
+# # ax1.legend()
+# ax1.set_ylabel('Ask Spread')
+# ax1.get_xaxis().set_visible(False)
+# ax1.set_title('Optimal Ask and Bid, Inventory = %d' % I[2])
+# ax1.set_ylim(0,1.9)
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# fig.add_subplot(ax1)
+#
+# ax2 = plt.Subplot(fig, inner[1],sharex = ax1)
 # for i in reversed(range(len(alphaT))):
-#     temp = trajectory_new(S, alphaT[i],gT,hT, I[4], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-#     ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i],label = '$\lambda$ = 0, 0.01, 1, 10, 100')
-# labelLines(ax.get_lines(), xvals=(23280, 23280), zorder=2)
-# ax.set_ylabel('Ask Price')
-# ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-# ax.set_xlabel('Time')
-# ax.set_title('Optimal Ask, Inventory = %d' % I[4])
-# xticks = ax.get_xticks()
-# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[2], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax2.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax2.get_lines(), xvals=(T - 50, T - 50), zorder=2)
+# ax2.legend()
+# ax2.set_ylabel('Bid Spread')
+# ax2.set_xlabel('Time')
+# # ax2.set_title('Optimal Ask and Bid, Inventory = %d' % I[j])
+# xticks = ax2.get_xticks()
+# ax2.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# ax2.set_ylim(-1.9, -0)
+# fig.add_subplot(ax2)
+# plt.subplots_adjust(hspace=.0)
 #
-# ax = fig.add_subplot(gs[1,1])
+# # I = -1000
+# inner = gridspec.GridSpecFromSubplotSpec(2, 1,subplot_spec=outer[3])
+#
+# ax1 = plt.Subplot(fig, inner[0])
+# for i in range(len(alphaT)):
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[3], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax1.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax1.get_lines(), xvals=(T - 70, T - 70), zorder=2)
+# ax1.legend()
+# ax1.set_ylabel('Ask Spread')
+# ax1.get_xaxis().set_visible(False)
+# ax1.set_title('Optimal Ask and Bid, Inventory = %d' % I[3])
+# ax1.set_ylim(0,1.9)
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# fig.add_subplot(ax1)
+#
+# ax2 = plt.Subplot(fig, inner[1],sharex = ax1)
 # for i in reversed(range(len(alphaT))):
-#     temp = trajectory_new(S, alphaT[i],gT,hT, I[4], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-#     ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i],label = '$\lambda$ = %.1f' % -alphaT[i])
-# labelLines(ax.get_lines(), xvals=(23275, 23275), zorder=2)
-# ax.set_ylabel('Bid Price')
-# ax.set_xlabel('Time')
-# ax.set_title('Optimal Bid, Inventory = %d' % I[4])
-# xticks = ax.get_xticks()
-# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[3], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax2.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[3], label='$\lambda$ = 0, 0.001, 0.01')
+# labelLines(ax2.get_lines(), xvals=(T - 70, T - 70), zorder=2)
+# # ax2.legend()
+# ax2.set_ylabel('Bid Spread')
+# ax2.set_xlabel('Time')
+# # ax2.set_title('Optimal Ask and Bid, Inventory = %d' % I[j])
+# xticks = ax2.get_xticks()
+# ax2.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# ax2.set_ylim(-1.9, -0)
+# fig.add_subplot(ax2)
+# plt.subplots_adjust(hspace=.0)
 #
-# # ask I = 1500
-# ax = fig.add_subplot(gs[2,0])
+# # I = 1500
+# inner = gridspec.GridSpecFromSubplotSpec(2, 1,subplot_spec=outer[4])
+#
+# ax1 = plt.Subplot(fig, inner[0])
+# for i in range(len(alphaT)):
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[4], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax1.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax1.get_lines(), xvals=(T - 20, T - 20), zorder=2,fontsize = 5)
+# # ax1.legend()
+# ax1.set_ylabel('Ask Spread')
+# ax1.get_xaxis().set_visible(False)
+# ax1.set_title('Optimal Ask and Bid, Inventory = %d' % I[4])
+# ax1.set_ylim(0,1.9)
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# fig.add_subplot(ax1)
+#
+# ax2 = plt.Subplot(fig, inner[1],sharex = ax1)
 # for i in reversed(range(len(alphaT))):
-#     temp = trajectory_new(S, alphaT[i],gT,hT, I[5], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-#     ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label = '$\lambda$ = %.1f' % -alphaT[i])
-# labelLines(ax.get_lines(),xvals=(23250,23280),zorder=2)
-# ax.set_ylabel('Ask Price')
-# ax.set_xlabel('Time')
-# ax.set_title('Optimal Ask, Inventory = %d' % I[5])
-# xticks = ax.get_xticks()
-# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[4], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax2.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax2.get_lines(), xvals=(T - 50, T - 50), zorder=2)
+# ax2.legend()
+# ax2.set_ylabel('Bid Spread')
+# ax2.set_xlabel('Time')
+# # ax2.set_title('Optimal Ask and Bid, Inventory = %d' % I[j])
+# xticks = ax2.get_xticks()
+# ax2.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# ax2.set_ylim(-1.9, 0)
+# fig.add_subplot(ax2)
+# plt.subplots_adjust(hspace=.0)
 #
-# ax = fig.add_subplot(gs[2,1])
+#
+# # I = -1500
+# inner = gridspec.GridSpecFromSubplotSpec(2, 1,subplot_spec=outer[5])
+#
+# ax1 = plt.Subplot(fig, inner[0])
+# for i in range(len(alphaT)):
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[5], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax1.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax1.get_lines(), xvals=(T - 20, T - 20), zorder=2,fontsize = 5)
+# # ax1.legend()
+# ax1.set_ylabel('Ask Spread')
+# ax1.get_xaxis().set_visible(False)
+# ax1.set_title('Optimal Ask and Bid, Inventory = %d' % I[5])
+# ax1.set_ylim(0,1.9)
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# fig.add_subplot(ax1)
+#
+# ax2 = plt.Subplot(fig, inner[1],sharex = ax1)
 # for i in reversed(range(len(alphaT))):
-#     temp = trajectory_new(S, alphaT[i],gT,hT, I[5], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-#     ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label = '$\lambda$ = %.1f' % -alphaT[i])
-# labelLines(ax.get_lines(),xvals=(23250,23280),zorder=2)
-# ax.set_ylabel('Bid Price')
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[5], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax2.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax2.get_lines(), xvals=(T - 50, T - 50), zorder=2)
+# ax2.legend()
+# ax2.set_ylabel('Bid Spread')
+# ax2.set_xlabel('Time')
+# # ax2.set_title('Optimal Ask and Bid, Inventory = %d' % I[j])
+# xticks = ax2.get_xticks()
+# ax2.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# ax2.set_ylim(-1.9, 0)
+# fig.add_subplot(ax2)
+# plt.subplots_adjust(hspace=.0)
+#
+# # fig.align_labels()
+# plt.savefig('fooa.png', bbox_inches='tight')
+#
+#
+# fig, ax = plt.subplots(tight_layout=True, figsize=(15,3))
+# for i in reversed(range(len(alphaT))):
+#     temp = trajectory_new(S, alphaT[i],gT,hT, I[1], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+#     ax.plot(time_plot[:-1][-100:], [x-y for x,y in zip(temp[3][-100:],temp[4][-100:])], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# ax.set_ylabel('Bid-Ask Spread')
 # ax.set_xlabel('Time')
-# ax.set_title('Optimal Bid, Inventory = %d' % I[5])
 # xticks = ax.get_xticks()
-# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-#
-#
-#
-# fig.align_labels()  # same as fig.align_xlabels(); fig.align_ylabels()
-#
-# plt.show()
-
+# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# labelLines(ax.get_lines(), xvals=(T - 50, T - 50), zorder=2)
+# plt.savefig('foob.png', bbox_inches='tight')
 # ####################################################################################################
 # # Pi(1,1)=0. Asymetric (pi+,pi-), different I
 #
@@ -682,26 +1033,26 @@ def trajectory_new(S, alphaT,gT,hT, I, pip, pim, pioo,muop, muom, mutp, mutm, mu
 #
 # plt.show()
 
-####################################################################################################
-# Pi(1,1)>0. symetric (pi+,pi-), different I
-# new p
-
-# T = 23400
-# lmbda = 10
+# ###################################################################################################
+# # Pi(1,1)>0. symetric (pi+,pi-), different I
+# # new p
+#
+# T = 19800
+# lmbda = 0.001
 # alphaT = -lmbda
 # gT = 0
 # hT = 0
 # # pip+pim-1V0<=pioo<=pip/\pim
 # pip = 0.4
 # pim = 0.4
-# pioo = 0.25
+# pioo = 0.2
 #
 # muop = muom = 500
 # mutp = mutm = 10**6  # mut>=muo^2
 # Ep = 1
 # muoop = muoom = muop * Ep
 # mutop = mutom = mutp * Ep
-# muttp = muttm = 4*10**6
+# muttp = muttm = 2*10**6
 #
 # # # Deltap>0, Deltam<0
 # # Deltap = 5
@@ -722,42 +1073,78 @@ def trajectory_new(S, alphaT,gT,hT, I, pip, pim, pioo,muop, muom, mutp, mutm, mu
 #     # new p
 #     res = trajectory_new(S, alphaT, gT, hT, I[i], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
 #     ab_res.append([res[3], res[4]])
+# #
+# # fig = plt.figure(tight_layout=True, figsize=(20, 8))
+# # gs = gridspec.GridSpec(2, 2,width_ratios=[1, 2])
+# #
+# # c = plt.rcParams['axes.prop_cycle'].by_key()[
+# #     'color']  # get default colormap in matlibplot such that each ask bid pair shares same color
+# #
+# # ax = fig.add_subplot(gs[:, 0])
+# # for i in range(len(I)):
+# #     ax.plot(time_plot[:-1], ab_res[i][0], color=c[i])
+# #     ax.plot(time_plot[:-1], ab_res[i][1], color=c[i])
+# # ax.set_ylabel('Bid-Ask Price')
+# # ax.set_xlabel('Time')
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # ax = fig.add_subplot(gs[0, 1])
+# # for j in range(len(I)):
+# #     ax.plot(time_plot[-100:], ab_res[j][0][-100:],label = 'I = %d' % I[j])
+# # labelLines(ax.get_lines(),xvals=(T-25,T-50),zorder=2.5,fontsize = 8)
+# # ax.set_ylabel('Ask Price')
+# # ax.set_xlabel('Time')
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # ax = fig.add_subplot(gs[1, 1])
+# # for j in range(len(I)):
+# #     ax.plot(time_plot[-100:], ab_res[j][1][-100:],label = 'I = %d' % I[j])
+# # labelLines(ax.get_lines(),xvals=(T-50,T-25),zorder=2.5,fontsize = 8)
+# # ax.set_ylabel('Bid Price')
+# # ax.set_xlabel('Time')
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # fig.align_labels()  # same as fig.align_xlabels(); fig.align_ylabels()
+# # plt.show()
+# #
+# # for j in range(len(I)):
+# #     plt.plot(time_plot[-100:], [x-y for x,y in zip(ab_res[j][0][-100:],ab_res[j][1][-100:])],label = 'I = %d' % I[j])
+# # plt.show()
 #
-# fig = plt.figure(tight_layout=True, figsize=(20, 8))
-# gs = gridspec.GridSpec(2, 2,width_ratios=[1, 2])
 #
-# c = plt.rcParams['axes.prop_cycle'].by_key()[
-#     'color']  # get default colormap in matlibplot such that each ask bid pair shares same color
+# fig = plt.figure(tight_layout=True, figsize=(15,6))
+# ax1 = fig.add_axes([0.05, 0.5, .95, 0.4],
+#                    xticklabels=[])
+# ax2 = fig.add_axes([0.05, 0.1, .95, 0.4])
 #
-# ax = fig.add_subplot(gs[:, 0])
-# for i in range(len(I)):
-#     ax.plot(time_plot[:-1], ab_res[i][0], color=c[i])
-#     ax.plot(time_plot[:-1], ab_res[i][1], color=c[i])
-# ax.set_ylabel('Bid-Ask Price')
-# ax.set_xlabel('Time')
-# xticks = ax.get_xticks()
-# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-#
-# ax = fig.add_subplot(gs[0, 1])
 # for j in range(len(I)):
-#     ax.plot(time_plot[-100:], ab_res[j][0][-100:],label = 'I = %d' % I[j])
-# labelLines(ax.get_lines(),xvals=(23350,23350),zorder=2.5)
-# ax.set_ylabel('Ask Price')
-# ax.set_xlabel('Time')
-# xticks = ax.get_xticks()
-# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
+#     ax1.plot(time_plot[-100:], ab_res[j][0][-100:],label = 'I = %d' % I[j])
+# labelLines(ax1.get_lines(),xvals=(T-25,T-20),zorder=2.5,fontsize=8)
+# ax1.set_ylabel('Ask Spread')
 #
-# ax = fig.add_subplot(gs[1, 1])
 # for j in range(len(I)):
-#     ax.plot(time_plot[-100:], ab_res[j][1][-100:],label = 'I = %d' % I[j])
-# labelLines(ax.get_lines(),xvals=(23350,23350),zorder=2.5)
-# ax.set_ylabel('Bid Price')
+#     ax2.plot(time_plot[-100:], ab_res[j][1][-100:],label = 'I = %d' % I[j])
+# labelLines(ax2.get_lines(),xvals=(T-25,T-20),zorder=2.5,fontsize=8)
+# ax2.set_ylabel('Bid Spread')
+# ax2.set_xlabel('Time')
+# xticks = ax2.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
+# ax2.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# # fig.align_labels()  # same as fig.align_xlabels(); fig.align_ylabels()
+# plt.savefig('fooa.png', bbox_inches='tight')
+#
+# fig, ax = plt.subplots(tight_layout=True, figsize=(15,3))
+# for j in range(len(I)):
+#     ax.plot(time_plot[1:], [x-y for x,y in zip(ab_res[j][0],ab_res[j][1])])
+# ax.set_ylabel('Bid-Ask Spread')
 # ax.set_xlabel('Time')
 # xticks = ax.get_xticks()
-# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-#
-# fig.align_labels()  # same as fig.align_xlabels(); fig.align_ylabels()
-# plt.show()
+# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# # fig.align_labels()  # same as fig.align_xlabels(); fig.align_ylabels()
+# plt.savefig('foob.png', bbox_inches='tight')
 #
 
 #####################################################################################
@@ -829,197 +1216,479 @@ def trajectory_new(S, alphaT,gT,hT, I, pip, pim, pioo,muop, muom, mutp, mutm, mu
 #
 # plt.show()
 
-# Pi(1,1)=0. Different penalty. New Plot
-
-T = 23400
-lmbda = [0,0.1,1,10,100]
-alphaT = [-x for x in lmbda]
-I= [-1500,-1200,-500,500,1200,1500]
-gT = 0
-hT = 0
-# pip+pim-1V0<=pioo<=pip/\pim
-pip = 0.4
-pim = 0.4
-pioo = 0.25
-
-muop = muom = 500
-mutp = mutm = 10**6  # mut>=muo^2
-Ep = 1
-muoop = muoom = muop * Ep
-mutop = mutom = mutp * Ep
-muttp = muttm = 4*10**6
-
-# # Deltap>0, Deltam<0
-# Deltap = 5
-# Deltam = -5
+# #################################################################################################
+# # Pi(1,1)=0. Different penalty. New Plot
 #
-# sigmap = sigmam = tldsigma = 0.00013  # (second to second)
-
-time = np.linspace(0, T, T / 3 + 1)[::-1]
-S = 0
-
-time_plot = list(time)
-time_plot.reverse()
-
-fig = plt.figure(tight_layout=True,figsize=(20, 8))
-gs = gridspec.GridSpec(3, 2)
-
-c = plt.rcParams['axes.prop_cycle'].by_key()[
-    'color']  # get default colormap in matlibplot such that each ask bid pair shares same color
-# I = -1500
-ax = fig.add_subplot(gs[0, 0])
-for i in reversed(range(len(alphaT))):
-    temp = trajectory_new(S, alphaT[i],gT,hT, I[0], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-    ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label = '$\lambda$ = %.1f' % -alphaT[i])
-labelLines(ax.get_lines(),xvals=(23150,23350),zorder=2)
-ax.set_ylabel('Ask Price')
-ax.set_xlabel('Time')
-ax.set_title('Optimal Ask, Inventory = %d' % I[0])
-xticks = ax.get_xticks()
-ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-
-ax = fig.add_subplot(gs[0, 1])
-for i in reversed(range(len(alphaT))):
-    temp = trajectory_new(S, alphaT[i],gT,hT, I[0], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-    ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label = '$\lambda$ = %.1f' % -alphaT[i])
-labelLines(ax.get_lines(),xvals=(23150, 23350),zorder=2)
-ax.set_ylabel('Bid Price')
-ax.set_xlabel('Time')
-ax.set_title('Optimal Bid, Inventory = %d' % I[0])
-xticks = ax.get_xticks()
-ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-
-# I = -1000
-ax = fig.add_subplot(gs[1, 0])
-for i in reversed(range(len(alphaT))):
-    temp = trajectory_new(S, alphaT[i],gT,hT, I[1], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-    ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i],label = '$\lambda$ = %.1f' % -alphaT[i])
-labelLines(ax.get_lines(), xvals=(23150, 23350), zorder=2)
-ax.set_ylabel('Ask Price')
-ax.set_xlabel('Time')
-ax.set_title('Optimal Ask, Inventory = %d' % I[1])
-xticks = ax.get_xticks()
-ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-
-ax = fig.add_subplot(gs[1, 1])
-for i in reversed(range(len(alphaT))):
-    temp = trajectory_new(S, alphaT[i],gT,hT, I[1], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-    ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i],label = '$\lambda$ = %.1f' % -alphaT[i])
-labelLines(ax.get_lines(), xvals=(23210, 23390), zorder=2)
-ax.set_ylabel('Bid Price')
-ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-ax.set_xlabel('Time')
-ax.set_title('Optimal Bid, Inventory = %d' % I[1])
-xticks = ax.get_xticks()
-ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-
-# ask I = -500
-ax = fig.add_subplot(gs[2, 0])
-for i in reversed(range(len(alphaT))):
-    temp = trajectory_new(S, alphaT[i],gT,hT, I[2], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-    ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label = '$\lambda$ = %.1f' % -alphaT[i])
-labelLines(ax.get_lines(),xvals=(23150, 23350),zorder=2)
-ax.set_ylabel('Ask Price')
-ax.set_xlabel('Time')
-ax.set_title('Optimal Ask, Inventory = %d' % I[2])
-xticks = ax.get_xticks()
-ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-
-ax = fig.add_subplot(gs[2, 1])
-for i in reversed(range(len(alphaT))):
-    temp = trajectory_new(S, alphaT[i],gT,hT, I[2], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-    ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label = '$\lambda$ = %.1f' % -alphaT[i])
-labelLines(ax.get_lines(),xvals=(23200, 23350),zorder=2)
-ax.set_ylabel('Bid Price')
-ax.set_xlabel('Time')
-ax.set_title('Optimal Bid, Inventory = %d' % I[2])
-xticks = ax.get_xticks()
-ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-
-fig.align_labels()  # same as fig.align_xlabels(); fig.align_ylabels()
-
-plt.show()
-
-
-fig = plt.figure(tight_layout=True,figsize=(20,8))
-gs = gridspec.GridSpec(3, 2)
-
-c = plt.rcParams['axes.prop_cycle'].by_key()[
-    'color']  # get default colormap in matlibplot such that each ask bid pair shares same color
-
-# I = 500
-ax = fig.add_subplot(gs[0, 0])
-for i in reversed(range(len(alphaT))):
-    temp = trajectory_new(S, alphaT[i],gT,hT, I[3], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-    ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label = '$\lambda$ = %.1f' % -alphaT[i])
-labelLines(ax.get_lines(),xvals=(23160, 23360),zorder=2)
-ax.set_ylabel('Ask Price')
-ax.set_xlabel('Time')
-ax.set_title('Optimal Ask, Inventory = %d' % I[3])
-xticks = ax.get_xticks()
-ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-
-ax = fig.add_subplot(gs[0, 1])
-for i in reversed(range(len(alphaT))):
-    temp = trajectory_new(S, alphaT[i],gT,hT, I[3], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-    ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label = '$\lambda$ = %.1f' % -alphaT[i])
-labelLines(ax.get_lines(),xvals=(23150, 23350),zorder=2)
-ax.set_ylabel('Bid Price')
-ax.set_xlabel('Time')
-ax.set_title('Optimal Bid, Inventory = %d' % I[3])
-xticks = ax.get_xticks()
-ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-
-# I = 1000
-ax = fig.add_subplot(gs[1,0])
-for i in reversed(range(len(alphaT))):
-    temp = trajectory_new(S, alphaT[i],gT,hT, I[4], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-    ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i],label = '$\lambda$ = %.1f' % -alphaT[i])
-labelLines(ax.get_lines(), xvals=(23210, 23390), zorder=2)
-ax.set_ylabel('Ask Price')
-ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-ax.set_xlabel('Time')
-ax.set_title('Optimal Ask, Inventory = %d' % I[4])
-xticks = ax.get_xticks()
-ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-
-ax = fig.add_subplot(gs[1,1])
-for i in reversed(range(len(alphaT))):
-    temp = trajectory_new(S, alphaT[i],gT,hT, I[4], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-    ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i],label = '$\lambda$ = %.1f' % -alphaT[i])
-labelLines(ax.get_lines(), xvals=(23150, 23350), zorder=2)
-ax.set_ylabel('Bid Price')
-ax.set_xlabel('Time')
-ax.set_title('Optimal Bid, Inventory = %d' % I[4])
-xticks = ax.get_xticks()
-ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-
-# ask I = 1500
-ax = fig.add_subplot(gs[2,0])
-for i in reversed(range(len(alphaT))):
-    temp = trajectory_new(S, alphaT[i],gT,hT, I[5], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-    ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label = '$\lambda$ = %.1f' % -alphaT[i])
-labelLines(ax.get_lines(),xvals=(23150, 23350),zorder=2)
-ax.set_ylabel('Ask Price')
-ax.set_xlabel('Time')
-ax.set_title('Optimal Ask, Inventory = %d' % I[5])
-xticks = ax.get_xticks()
-ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-
-ax = fig.add_subplot(gs[2,1])
-for i in reversed(range(len(alphaT))):
-    temp = trajectory_new(S, alphaT[i],gT,hT, I[5], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
-    ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label = '$\lambda$ = %.1f' % -alphaT[i])
-labelLines(ax.get_lines(),xvals=(23150, 23350),zorder=2)
-ax.set_ylabel('Bid Price')
-ax.set_xlabel('Time')
-ax.set_title('Optimal Bid, Inventory = %d' % I[5])
-xticks = ax.get_xticks()
-ax.set_xticklabels([str(datetime.timedelta(seconds=x + 9.5 * 3600)) for x in xticks])
-
-fig.align_labels()  # same as fig.align_xlabels(); fig.align_ylabels()
-
-plt.show()
-
-# res = alpha_res, h_res, g_res, a_res, b_res, a1p_res, a2p_res, a3p_res, a1m_res, a2m_res, a3m_res
-# plt.plot(res[2])
+# T = 19800
+# lmbda = [0,0.001,0.01]
+# alphaT = [-x for x in lmbda]
+# # I= [-1500,-1050,-500,500,1050,1500]
+# I= [500,-500,1050,-1050,1500,-1500]
+# gT = 0
+# hT = 0
+# # pip+pim-1V0<=pioo<=pip/\pim
+# pip = 0.4
+# pim = 0.4
+# pioo = 0.2
+#
+# muop = muom = 500
+# mutp = mutm = 10**6  # mut>=muo^2
+# Ep = 1
+# muoop = muoom = muop * Ep
+# mutop = mutom = mutp * Ep
+# muttp = muttm = 2*10**6
+#
+# # # Deltap>0, Deltam<0
+# # Deltap = 5
+# # Deltam = -5
+# #
+# # sigmap = sigmam = tldsigma = 0.00013  # (second to second)
+#
+# time = np.linspace(0, T, T / 3 + 1)[::-1]
+# S = 0
+#
+# time_plot = list(time)
+# time_plot.reverse()
+# #
+# # fig = plt.figure(tight_layout=True,figsize=(20, 8))
+# # gs = gridspec.GridSpec(3, 2)
+# #
+# c = plt.rcParams['axes.prop_cycle'].by_key()[
+#     'color']  # get default colormap in matlibplot such that each ask bid pair shares same color
+# # # I = -1500
+# # ax = fig.add_subplot(gs[0, 0])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[0], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(),xvals=(T-50,T-50),zorder=2)
+# # ax.set_ylabel('Ask Price')
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Ask, Inventory = %d' % I[0])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # ax = fig.add_subplot(gs[0, 1])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[0], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(),xvals=(T-50,T-50),zorder=2)
+# # ax.set_ylabel('Bid Price')
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Bid, Inventory = %d' % I[0])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # # for i in reversed(range(len(alphaT))):
+# # #     temp = trajectory_new(S, alphaT[i],gT,hT, I[0], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# # #     plt.plot(time_plot[:-1][-100:], [x-y for x,y in zip(temp[3][-100:],temp[4][-100:])], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # # plt.show()
+# #
+# # # I = -1000
+# # ax = fig.add_subplot(gs[1, 0])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[1], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i],label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(), xvals=(T-50,T-50), zorder=2)
+# # ax.set_ylabel('Ask Price')
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Ask, Inventory = %d' % I[1])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # ax = fig.add_subplot(gs[1, 1])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[1], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i],label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(), xvals=(T-25,T-25), zorder=1,fontsize = 8, align=False,ha='left',va='bottom')
+# # ax.set_ylabel('Bid Price')
+# # ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Bid, Inventory = %d' % I[1])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[1], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     plt.plot(time_plot[:-1][-100:], [x-y for x,y in zip(temp[3][-100:],temp[4][-100:])], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # plt.show()
+# #
+# # # ask I = -500
+# # ax = fig.add_subplot(gs[2, 0])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[2], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(),xvals=(T-50,T-50),zorder=2)
+# # ax.set_ylabel('Ask Price')
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Ask, Inventory = %d' % I[2])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # ax = fig.add_subplot(gs[2, 1])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[2], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(),xvals=(T-50,T-50),zorder=2)
+# # ax.set_ylabel('Bid Price')
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Bid, Inventory = %d' % I[2])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # fig.align_labels()  # same as fig.align_xlabels(); fig.align_ylabels()
+# #
+# # plt.show()
+# #
+# #
+# # fig = plt.figure(tight_layout=True,figsize=(20,8))
+# # gs = gridspec.GridSpec(3, 2)
+# #
+# # c = plt.rcParams['axes.prop_cycle'].by_key()[
+# #     'color']  # get default colormap in matlibplot such that each ask bid pair shares same color
+# #
+# # # I = 500
+# # ax = fig.add_subplot(gs[0, 0])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[3], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(),xvals=(T-50,T-50),zorder=2)
+# # ax.set_ylabel('Ask Price')
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Ask, Inventory = %d' % I[3])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # ax = fig.add_subplot(gs[0, 1])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[3], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(),xvals=(T-50,T-50),zorder=2)
+# # ax.set_ylabel('Bid Price')
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Bid, Inventory = %d' % I[3])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # # I = 1000
+# # ax = fig.add_subplot(gs[1,0])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[4], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i],label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(), xvals=(T-10,T-10), zorder=1,fontsize = 8, align=False,ha='right',va='bottom')
+# # ax.set_ylabel('Ask Price')
+# # ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Ask, Inventory = %d' % I[4])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # ax = fig.add_subplot(gs[1,1])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[4], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i],label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(), xvals=(T-50,T-50), zorder=2)
+# # ax.set_ylabel('Bid Price')
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Bid, Inventory = %d' % I[4])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # # ask I = 1500
+# # ax = fig.add_subplot(gs[2,0])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[5], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(),xvals=(T-50,T-50),zorder=2)
+# # ax.set_ylabel('Ask Price')
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Ask, Inventory = %d' % I[5])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # ax = fig.add_subplot(gs[2,1])
+# # for i in reversed(range(len(alphaT))):
+# #     temp = trajectory_new(S, alphaT[i],gT,hT, I[5], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+# #     ax.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax.get_lines(),xvals=(T-50,T-50),zorder=2)
+# # ax.set_ylabel('Bid Price')
+# # ax.set_xlabel('Time')
+# # ax.set_title('Optimal Bid, Inventory = %d' % I[5])
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# #
+# # fig.align_labels()  # same as fig.align_xlabels(); fig.align_ylabels()
+# #
+# # plt.show()
+#
+#
+#
+# fig = plt.figure(figsize=(20,12))
+# outer = gridspec.GridSpec(3, 2, wspace=0.2, hspace=0.3)
+#
+# # I = 500
+# inner = gridspec.GridSpecFromSubplotSpec(2, 1,subplot_spec=outer[0])
+#
+# ax1 = plt.Subplot(fig, inner[0])
+# for i in range(len(alphaT)):
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[0], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax1.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax1.get_lines(), xvals=(T - 20, T - 20), zorder=2,fontsize = 5)
+# # ax1.legend()
+# ax1.set_ylabel('Ask Spread')
+# ax1.get_xaxis().set_visible(False)
+# ax1.set_title('Optimal Ask and Bid, Inventory = %d' % I[0])
+# ax1.set_ylim(0,1.9)
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# fig.add_subplot(ax1)
+#
+# ax2 = plt.Subplot(fig, inner[1],sharex = ax1)
+# for i in reversed(range(len(alphaT))):
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[0], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax2.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax2.get_lines(), xvals=(T - 50, T - 50), zorder=2)
+# ax2.legend()
+# ax2.set_ylabel('Bid Spread')
+# ax2.set_xlabel('Time')
+# # ax2.set_title('Optimal Ask and Bid, Inventory = %d' % I[j])
+# xticks = ax2.get_xticks()
+# ax2.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# ax2.set_ylim(-1.9, -0)
+# fig.add_subplot(ax2)
+# plt.subplots_adjust(hspace=.0)
+#
+# # I = -500
+# inner = gridspec.GridSpecFromSubplotSpec(2, 1,subplot_spec=outer[1])
+#
+# ax1 = plt.Subplot(fig, inner[0])
+# for i in range(len(alphaT)):
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[1], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax1.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax1.get_lines(), xvals=(T - 20, T - 20), zorder=2,fontsize = 5)
+# # ax1.legend()
+# ax1.set_ylabel('Ask Spread')
+# ax1.get_xaxis().set_visible(False)
+# ax1.set_title('Optimal Ask and Bid, Inventory = %d' % I[1])
+# ax1.set_ylim(0,1.9)
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# fig.add_subplot(ax1)
+#
+# ax2 = plt.Subplot(fig, inner[1],sharex = ax1)
+# for i in reversed(range(len(alphaT))):
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[1], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax2.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax2.get_lines(), xvals=(T - 50, T - 50), zorder=2)
+# ax2.legend()
+# ax2.set_ylabel('Bid Spread')
+# ax2.set_xlabel('Time')
+# # ax2.set_title('Optimal Ask and Bid, Inventory = %d' % I[j])
+# xticks = ax2.get_xticks()
+# ax2.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# ax2.set_ylim(-1.9, -0)
+# fig.add_subplot(ax2)
+# plt.subplots_adjust(hspace=.0)
+#
+# # I = 1050
+# inner = gridspec.GridSpecFromSubplotSpec(2, 1,subplot_spec=outer[2])
+#
+# ax1 = plt.Subplot(fig, inner[0])
+# for i in range(len(alphaT)):
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[2], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     X = time_plot[:-1][-100:]
+#     Y = temp[3][-100:]
+#     ax1.plot(X,Y, color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+#
+# # labelLines(ax1.get_lines(), xvals=(T - 70, T - 70), zorder=2)
+# # ax1.legend()
+# ax1.set_ylabel('Ask Spread')
+# ax1.get_xaxis().set_visible(False)
+# ax1.set_title('Optimal Ask and Bid, Inventory = %d' % I[2])
+# ax1.set_ylim(0,1.9)
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# fig.add_subplot(ax1)
+#
+#
+# ax2 = plt.Subplot(fig, inner[1],sharex = ax1)
+# for i in reversed(range(len(alphaT))):
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[2], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax2.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax2.get_lines(), xvals=(T - 50, T - 50), zorder=2)
+# ax2.legend()
+# ax2.set_ylabel('Bid Spread')
+# ax2.set_xlabel('Time')
+# # ax2.set_title('Optimal Ask and Bid, Inventory = %d' % I[j])
+# xticks = ax2.get_xticks()
+# ax2.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# ax2.set_ylim(-1.9, -0)
+# fig.add_subplot(ax2)
+# plt.subplots_adjust(hspace=.0)
+#
+# # I = -1050
+# inner = gridspec.GridSpecFromSubplotSpec(2, 1,subplot_spec=outer[3])
+#
+# ax1 = plt.Subplot(fig, inner[0])
+# for i in range(len(alphaT)):
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[3], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax1.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax1.get_lines(), xvals=(T - 70, T - 70), zorder=2)
+# # ax1.legend()
+# ax1.set_ylabel('Ask Spread')
+# ax1.get_xaxis().set_visible(False)
+# ax1.set_title('Optimal Ask and Bid, Inventory = %d' % I[3])
+# ax1.set_ylim(0,1.9)
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# fig.add_subplot(ax1)
+#
+# ax2 = plt.Subplot(fig, inner[1],sharex = ax1)
+# for i in reversed(range(len(alphaT))):
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[3], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax2.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax2.get_lines(), xvals=(T - 70, T - 70), zorder=2)
+# ax2.legend()
+# ax2.set_ylabel('Bid Spread')
+# ax2.set_xlabel('Time')
+# # ax2.set_title('Optimal Ask and Bid, Inventory = %d' % I[j])
+# xticks = ax2.get_xticks()
+# ax2.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# ax2.set_ylim(-1.9, -0)
+# fig.add_subplot(ax2)
+# plt.subplots_adjust(hspace=.0)
+#
+# # I = 1500
+# inner = gridspec.GridSpecFromSubplotSpec(2, 1,subplot_spec=outer[4])
+#
+# ax1 = plt.Subplot(fig, inner[0])
+# for i in range(len(alphaT)):
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[4], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax1.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax1.get_lines(), xvals=(T - 20, T - 20), zorder=2,fontsize = 5)
+# # ax1.legend()
+# ax1.set_ylabel('Ask Spread')
+# ax1.get_xaxis().set_visible(False)
+# ax1.set_title('Optimal Ask and Bid, Inventory = %d' % I[4])
+# ax1.set_ylim(0,1.9)
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# fig.add_subplot(ax1)
+#
+# ax2 = plt.Subplot(fig, inner[1],sharex = ax1)
+# for i in reversed(range(len(alphaT))):
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[4], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax2.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax2.get_lines(), xvals=(T - 50, T - 50), zorder=2)
+# ax2.legend()
+# ax2.set_ylabel('Bid Spread')
+# ax2.set_xlabel('Time')
+# # ax2.set_title('Optimal Ask and Bid, Inventory = %d' % I[j])
+# xticks = ax2.get_xticks()
+# ax2.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# ax2.set_ylim(-1.9, 0)
+# fig.add_subplot(ax2)
+# plt.subplots_adjust(hspace=.0)
+#
+#
+# # I = -1500
+# inner = gridspec.GridSpecFromSubplotSpec(2, 1,subplot_spec=outer[5])
+#
+# ax1 = plt.Subplot(fig, inner[0])
+# for i in range(len(alphaT)):
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[5], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax1.plot(time_plot[:-1][-100:], temp[3][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax1.get_lines(), xvals=(T - 20, T - 20), zorder=2,fontsize = 5)
+# # ax1.legend()
+# ax1.set_ylabel('Ask Spread')
+# ax1.get_xaxis().set_visible(False)
+# ax1.set_title('Optimal Ask and Bid, Inventory = %d' % I[5])
+# ax1.set_ylim(0,1.9)
+# # xticks = ax.get_xticks()
+# # ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# fig.add_subplot(ax1)
+#
+# ax2 = plt.Subplot(fig, inner[1],sharex = ax1)
+# for i in reversed(range(len(alphaT))):
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[5], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax2.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax2.get_lines(), xvals=(T - 50, T - 50), zorder=2)
+# ax2.legend()
+# ax2.set_ylabel('Bid Spread')
+# ax2.set_xlabel('Time')
+# # ax2.set_title('Optimal Ask and Bid, Inventory = %d' % I[j])
+# xticks = ax2.get_xticks()
+# ax2.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# ax2.set_ylim(-1.9, 0)
+# fig.add_subplot(ax2)
+# plt.subplots_adjust(hspace=.0)
+#
+# # fig.align_labels()
+# plt.savefig('fooa.png', bbox_inches='tight')
+#
+#
+# fig, ax = plt.subplots(tight_layout=True, figsize=(15,3))
+# for i in reversed(range(len(alphaT))):
+#     temp = trajectory_new(S, alphaT[i],gT,hT, I[1], pip, pim, pioo,muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, time)
+#     ax.plot(time_plot[:-1][-100:], [x-y for x,y in zip(temp[3][-100:],temp[4][-100:])], color=c[i], label = '$\lambda$ = {}'.format(-alphaT[i]))
+# ax.set_ylabel('Bid-Ask Spread')
+# ax.set_xlabel('Time')
+# xticks = ax.get_xticks()
+# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# labelLines(ax.get_lines(), xvals=(T - 50, T - 50), zorder=2)
+# plt.savefig('foob.png', bbox_inches='tight')
+#
+#
+# fig = plt.figure(figsize=(15,2))
+# outer = gridspec.GridSpec(1, 2, wspace=0.2, hspace=0.3)
+#
+# # I = 1050
+# inner = gridspec.GridSpecFromSubplotSpec(1, 1,subplot_spec=outer[0])
+#
+# ax1 = plt.Subplot(fig, inner[0])
+# for i in range(len(alphaT)):
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[2], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     X = time_plot[:-1][-100:]
+#     Y = temp[3][-100:]
+#     ax1.plot(X,Y, color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+#
+# # labelLines(ax1.get_lines(), xvals=(T - 70, T - 70), zorder=2)
+# ax1.legend()
+# ax1.set_ylabel('Ask Spread')
+# ax1.set_xlabel('Time')
+# ax1.set_title('Optimal Ask, Inventory = %d' % I[2])
+# xticks = ax.get_xticks()
+# ax.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# fig.add_subplot(ax1)
+#
+# # I = -1050
+# inner = gridspec.GridSpecFromSubplotSpec(1, 1,subplot_spec=outer[1])
+#
+# ax2 = plt.Subplot(fig, inner[0])
+# for i in reversed(range(len(alphaT))):
+#     temp = trajectory_new(S, alphaT[i], gT, hT, I[3], pip, pim, pioo, muop, muom, mutp, mutm, muoop, muoom, mutop,
+#                           mutom, muttp, muttm, time)
+#     ax2.plot(time_plot[:-1][-100:], temp[4][-100:], color=c[i], label='$\lambda$ = {}'.format(-alphaT[i]))
+# # labelLines(ax2.get_lines(), xvals=(T - 70, T - 70), zorder=2)
+# ax2.legend()
+# ax2.set_ylabel('Bid Spread')
+# ax2.set_xlabel('Time')
+# ax2.set_title('Optimal Bid, Inventory = %d' % I[3])
+# xticks = ax2.get_xticks()
+# ax2.set_xticklabels([str(datetime.timedelta(seconds=x + 10 * 3600)) for x in xticks])
+# fig.add_subplot(ax2)
+#
+# # fig.align_labels()
+# plt.savefig('fooc.png', bbox_inches='tight')
