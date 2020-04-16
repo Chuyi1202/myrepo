@@ -23,6 +23,9 @@ import copy
 import Plots
 
 import Benchmark_trajectory as BT
+from statistics import mean
+
+from scipy import stats
 
 # =============================================================================
 # Import Data
@@ -37,7 +40,7 @@ f_msg = sorted(glob.glob('Data.nosync/MSFT/MSFT_orders_0[4-5]*19.csv'), key=lamb
 # f_msg = sorted(glob.glob('Data/MSFT/MSFT_orders_*.csv'),key = lambda x: (x[-6:-4],x[-10:-6]),reverse=True)
 
 acttime_est = list(range(34200+1800, 34200 + 23400 - 1800, 3))
-
+# acttime_est = list(range(34200+1800, 34200 + 23400 - 1800, 1))
 mismatch = []  # Record data with mismathed book and message
 dateprocessed = []  # Record date been successfully processed
 
@@ -79,12 +82,31 @@ sigmam_rec = []
 sigmatld_rec = []
 sigmanone_rec = []
 
-bk = 'Data.nosync/MSFT/MSFT_book_041819.csv'
-msg = 'Data.nosync/MSFT/MSFT_orders_041819.csv'
-# f_book = f_book [:1]
-# f_msg = f_msg [:1]
+# bk = 'Data.nosync/MSFT/MSFT_book_041819.csv'
+# msg = 'Data.nosync/MSFT/MSFT_orders_041819.csv'
+# f_book = f_book [:2]
+# f_msg = f_msg [:2]
 
 start_time = time.time()
+
+# check if the conditional expectations are time invariant
+plus_p_t = [[] for _ in range(len(acttime_est))]
+plus_c_t = [[] for _ in range(len(acttime_est))]
+plus_cp_t = [[] for _ in range(len(acttime_est))]
+plus_cc_t = []
+plus_ccp_t = []
+plus_ccpp_t = []
+
+minus_p_t = [[] for _ in range(len(acttime_est))]
+minus_c_t = [[] for _ in range(len(acttime_est))]
+minus_cp_t = [[] for _ in range(len(acttime_est))]
+minus_cc_t = []
+minus_ccp_t = []
+minus_ccpp_t = []
+
+plus_pi_t = [[] for _ in range(len(acttime_est))]
+minus_pi_t = [[] for _ in range(len(acttime_est))]
+pioo_t = [[] for _ in range(len(acttime_est))]
 
 for bk, msg in zip(f_book,f_msg): # each day is an episode
 
@@ -157,21 +179,14 @@ for bk, msg in zip(f_book,f_msg): # each day is an episode
         # # =============================================================================
 
         # How many MOs falling in each action intervals
-        count_plus = np.histogram(MO_Plus.Time, bins=acttime_est)[0]  # left closed right open
-        count_minus = np.histogram(MO_Minus.Time, bins=acttime_est)[0]
+        bin_endpoint = acttime_est.copy()
+        bin_endpoint.append(34200 + 23400 - 1800)
+        count_plus = np.histogram(MO_Plus.Time, bins=bin_endpoint)[0]  # left closed right open
+        count_minus = np.histogram(MO_Minus.Time, bins=bin_endpoint)[0]
         # calculate pi^+,-
         pip = len(count_plus.nonzero()[0]) / len(count_plus)
         pim = len(count_minus.nonzero()[0]) / len(count_minus)
         pioo = len(set(count_plus.nonzero()[0]) & set(count_minus.nonzero()[0]))/len(count_minus)
-
-        # Moving Average
-        rolling_mean_plus = pd.Series(count_plus!=0).rolling(window=100).mean()
-        rolling_mean_minus = pd.Series(count_minus!=0).rolling(window=100).mean()
-        plt.plot(rolling_mean_plus, label='pi_plus')
-        plt.plot(rolling_mean_minus, label='pi_minus')
-        plt.plot(rolling_mean_plus-rolling_mean_minus, label='pi_minus')
-        plt.legend()
-        plt.show()
 
         pi_rec.append([pip,pim,pioo])
 
@@ -243,10 +258,24 @@ for bk, msg in zip(f_book,f_msg): # each day is an episode
         for i in range(len(df)):
             if df.loc[i, 'PlusMO_maxp']!='' and df.loc[i, 'MinusMO_minp']=='':
                 df.loc[i, 'TypeMO'] = 'P'
+                plus_pi_t[i].append(1) # check if the conditional expectations are time invariant
+                minus_pi_t[i].append(0)
+                pioo_t[i].append(0)
             elif df.loc[i, 'PlusMO_maxp']=='' and df.loc[i, 'MinusMO_minp']!='':
                 df.loc[i, 'TypeMO'] = 'M'
+                minus_pi_t[i].append(1) # check if the conditional expectations are time invariant
+                plus_pi_t[i].append(0)
+                pioo_t[i].append(0)
             elif df.loc[i, 'PlusMO_maxp'] != '' and df.loc[i, 'MinusMO_minp'] != '':
                 df.loc[i, 'TypeMO'] = 'Both'
+                pioo_t[i].append(1) # check if the conditional expectations are time invariant
+                plus_pi_t[i].append(1)
+                minus_pi_t[i].append(1)
+            else:
+                pioo_t[i].append(0) # check if the conditional expectations are time invariant
+                plus_pi_t[i].append(0)
+                minus_pi_t[i].append(0)
+
 
         # # =============================================================================
         # # Estimate the expectation of each parameters
@@ -318,6 +347,22 @@ for bk, msg in zip(f_book,f_msg): # each day is an episode
         minus_ccp_rec.append(((df.c_minus**2*df.p_minus)[df.p_minus>0]).mean())
         minus_ccpp_rec.append(((df.c_minus**2*df.p_minus**2)[df.p_minus>0]).mean())
 
+        # Store c,p for each tk. # check if the conditional expectations are time invariant
+        for i in range(len(df)):
+            if df.p_plus.iloc[i]>0:
+                plus_p_t[i].append(df.p_plus.iloc[i])
+            if df.cp_plus.iloc[i]>0:
+                plus_cp_t[i].append(df.cp_plus.iloc[i])
+            if df.c_plus.iloc[i]>0:
+                plus_c_t[i].append(df.c_plus.iloc[i])
+
+            if df.p_minus.iloc[i]>0:
+                minus_p_t[i].append(df.p_minus.iloc[i])
+            if df.cp_minus.iloc[i]>0:
+                minus_cp_t[i].append(df.cp_minus.iloc[i])
+            if df.c_minus.iloc[i]>0:
+                minus_c_t[i].append(df.c_minus.iloc[i])
+
         # dltSp_rec.append(df.DeltaP.mean())
         # dltSm_rec.append(df.DeltaM.mean())
         # dltStld_rec.append(df.DeltaTilde.mean())
@@ -384,6 +429,127 @@ print("E(ccpp): %.2e" % ((np.mean(plus_ccpp_rec)+np.mean(minus_ccpp_rec))/2))
 # print("Sigma^2-: %.2f" % (np.mean(sigmam_rec)/dt))
 # print("Sigma^2_Tilde: %.2f" % (np.mean(sigmatld_rec)/dt))
 # print("Sigma^2_None: %.2f" % (np.mean(sigmanone_rec)/dt))
+
+# check if the conditional expectations are time invariant
+plus_c_t = [x for x in plus_c_t if x!=[]]
+plus_cp_t = [x for x in plus_cp_t if x!=[]]
+plus_p_t = [x for x in plus_p_t if x!=[]]
+
+minus_c_t = [x for x in minus_c_t if x!=[]]
+minus_cp_t = [x for x in minus_cp_t if x!=[]]
+minus_p_t = [x for x in minus_p_t if x!=[]]
+
+plus_cc_t = []
+plus_ccp_t = []
+plus_ccpp_t = []
+
+minus_cc_t = []
+minus_ccp_t = []
+minus_ccpp_t = []
+
+for i in range(len(plus_c_t)):
+    plus_cc_t.append([x**2 for x in plus_c_t[i]])
+    plus_ccp_t.append([x**2*y for x,y in zip(plus_c_t[i],plus_p_t[i])])
+    plus_ccpp_t.append([(x ** 2) * (y**2) for x, y in zip(plus_c_t[i], plus_p_t[i])])
+for i in range(len(minus_c_t)):
+    minus_cc_t.append([x**2 for x in minus_c_t[i]])
+    minus_ccp_t.append([x**2*y for x,y in zip(minus_c_t[i],minus_p_t[i])])
+    minus_ccpp_t.append([(x ** 2) * (y**2) for x, y in zip(minus_c_t[i], minus_p_t[i])])
+
+par = plus_cp_t
+par_avg = [np.mean(x) for x in par if x!=[]]
+plt.plot(par_avg)
+plt.hist(par_avg)
+slope, intercept, r_value, p_value, std_err = stats.linregress(list(range(1,len(par_avg)+1)),par_avg)
+print("Slope: {0:.2e}".format(slope))
+print("Std: {0:.2e}".format(std_err))
+print("p-value: {0:.3f}".format(p_value))
+print("intercept: {0:.2e}".format(intercept))
+
+# mean = sum(par_avg) / len(par_avg)
+# var = sum((i - mean) ** 2 for i in par_avg) / len(par_avg)
+
+# poly = PolynomialFeatures(degree=1)
+# par_time = np.array(list(range(1,len(par_avg)+1))).reshape(-1,1)
+# X_poly = poly.fit_transform(par_time)
+# mod = sm.OLS(par_avg,X_poly)
+# fii = mod.fit()
+# print(fii.summary())
+#
+# plt.plot(par_time, par_avg, color='blue')
+# plt.plot(par_time, fii.predict(poly.fit_transform(par_time)), color='red')
+# plt.ylim([-700, 14000])
+# plt.title('Trajectory of $cp_{t_k}^-$')
+# plt.xlabel('Time Steps')
+# plt.ylabel('$cp_{t_k}^-$')
+# plt.show()
+
+from statsmodels.tsa.stattools import adfuller
+
+par = plus_ccpp_t
+par_avg = [np.mean(x) for x in par if x!=[]]
+result = adfuller(par_avg)
+# print('ADF Statistic: %f' % result[0])
+print('p-value: %.2f' % result[1])
+# print('Critical Values:')
+# for key, value in result[4].items():
+# 	print('\t%s: %.3f' % (key, value))
+
+
+
+
+
+# pi_t is a quadratic function. polynomial regression
+
+# par = plus_pi_t
+par = minus_pi_t
+# par = pioo_t
+for i in range(len(par)):
+    if par[i] == []:
+        par[i] = [0]
+par_avg = [np.mean(x) for x in par]
+par_time = list(range(34200+1800, 34200 + 23400 - 1800, 3))
+# plt.plot(par_avg)
+
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression
+poly = PolynomialFeatures(degree=2)
+par_time = np.array(par_time).reshape(-1,1)
+X_poly = poly.fit_transform(par_time)
+lin2 = LinearRegression()
+lin2.fit(X_poly, par_avg)
+
+# piplust = [lin2.intercept_+lin2.coef_[1]*t+lin2.coef_[2]*t**2 for t in par_time]
+# piminust = [lin2.intercept_+lin2.coef_[1]*t+lin2.coef_[2]*t**2 for t in par_time]
+# pioot = [lin2.intercept_+lin2.coef_[1]*t+lin2.coef_[2]*t**2 for t in par_time]
+
+plt.plot(par_time, par_avg, color='blue')
+
+plt.plot(par_time, lin2.predict(poly.fit_transform(par_time)), color='red')
+plt.title('Trajectory of $\pi_{t_k}(1,1)$')
+plt.xlabel('Time Steps')
+plt.ylabel('$\pi_{t_k}(1,1)$')
+plt.show()
+
+import statsmodels.api as sm
+mod = sm.OLS(par_avg,X_poly)
+fii = mod.fit()
+print(fii.summary())
+
+# Check condition of pi:  pip+pim-1V0<=pioo<=pip/\pim
+left = [max(x+y-1,0) for x,y in zip(piplust,piminust)]
+right = [min(x,y) for x,y in zip(piplust,piminust)]
+plt.plot(par_time,left, label = "Left")
+plt.plot(par_time,right, label = "Right")
+plt.plot(par_time,pioot, label = "Pioo")
+plt.legend()
+plt.show()
+
+# value for simulation
+piplust = [4.75-0.00018*t+1.82*10**(-9)*t**2 for t in par_time]
+piminus = piplust
+pioot = [4-0.00016*t+1.657*10**(-9)*t**2 for t in par_time]
+
 
 # =============================================================================
 # Implement on real data
@@ -473,14 +639,32 @@ W0 = 0  # Initial cashflow
 alphaT = -lmbda
 gT = 0
 hT = 0
-## pip+pim-1V0<=pioo<=pip/\pim
-# pip = 0.38
-# pim = 0.385
-# pioo = 0.205
+# pip+pim-1V0<=pioo<=pip/\pim
+pip = 0.38
+pim = 0.385
+pioo = 0.205
 
 # # Deltap>0, Deltam<0
 # Deltap = 0.9
 # Deltam = -0.9
+#
+# muop = muom = 628
+# mutp = mutm = 1.28 * 10 ** 6  # mut>=muo^2
+# Ep = 0.997
+# muoop = muoom = muop * Ep
+# mutop = mutom = mutp * Ep
+# muttp = muttm = 4.15 * 10 ** 6
+#
+# I0 = 0  # Initial inventory
+# W0 = 0  # Initial cashflow
+#
+# alphaT = -lmbda
+# gT = 0
+# hT = 0
+# # pip+pim-1V0<=pioo<=pip/\pim
+# pip = 0.42
+# pim = 0.42
+# pioo = 0.24
 
 
 # def trajectory(alphaT, pip, pim, pioo, Deltap, Deltam, sigmap, sigmam, tldsigma, acttime_res):
@@ -538,81 +722,81 @@ hT = 0
 #     a3m_res.reverse()
 #     return alpha_res, h_res, g_res, a1p_res, a2p_res, a3p_res, a1m_res, a2m_res, a3m_res
 
-# def trajectory_new(alphaT, gT, hT, pioo, pip, pim, muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp,
-#                    muttm,time):  # new p
-#     alpha_res = []
-#     g_res = []
-#     h_res = []
-#
-#     a1p_res = []
-#     a2p_res = []
-#     a3p_res = []
-#     a1m_res = []
-#     a2m_res = []
-#     a3m_res = []
-#
-#     alpha = alphaT
-#     g = gT
-#     h = hT
-#     for k in range(len(time) - 1):
-#         a1p = BT.A1p(alpha, pioo, pip, pim, muop, muom, mutp, mutm)
-#         a1m = BT.A1m(alpha, pioo, pip, pim, muop, muom, mutp, mutm)
-#         a2p = BT.A2p(alpha, pioo, pip, pim, muop, muom, mutp, mutm, muoop, muoom, mutop, mutom)
-#         a2m = BT.A2m(alpha, pioo, pip, pim, muop, muom, mutp, mutm, muoop, muoom, mutop, mutom)
-#         # a3p = BT.A3p(alpha, pioo, pip, pim, muop, muom, mutp, mutm, Deltap, Deltam, h)
-#         # a3m = BT.A3m(alpha, pioo, pip, pim, muop, muom, mutp, mutm, Deltap, Deltam, h)
-#         a3p = BT.A3p_new(alpha, pioo, pip, pim, muop, muom, mutp, mutm, h)
-#         a3m = BT.A3m_new(alpha, pioo, pip, pim, muop, muom, mutp, mutm, h)
-#
-#         a1p_res.append(a1p)
-#         a2p_res.append(a2p)
-#         a3p_res.append(a3p)
-#         a1m_res.append(a1m)
-#         a2m_res.append(a2m)
-#         a3m_res.append(a3m)
-#
-#         alpha = BT.alpha_updt(alpha, pioo, pip, pim, muop, muom, mutp, mutm, a1p, a1m)
-#         # h = BT.h_updt(alpha, pioo, pip, pim, muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, Deltap, Deltam, h, a1p,
-#         #            a1m,
-#         #            a2p, a2m, a3p, a3m)
-#
-#         h = BT.h_updt_new(alpha, pioo, pip, pim, muop, muom, mutp, mutm, muoop, muoom, mutop,mutom, h, a1p, a1m, a2p, a2m,
-#                           a3p, a3m)
-#
-#         # g = BT.g_updt(alpha, pioo, pip, pim, muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, Deltap,
-#         #            Deltam,
-#         #            h, g, sigmap, sigmam, tldsigma, acttime_res[k], acttime_res[k + 1], a2p, a2m, a3p, a3m)
-#
-#         g = BT.g_updt_new(alpha, pioo, pip, pim, muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm,
-#                           h, g, a2p, a2m, a3p, a3m)
-#
-#         alpha_res.append(alpha)
-#         h_res.append(h)
-#         g_res.append(g)
-#
-#     alpha_res.reverse()
-#     h_res.reverse()
-#     g_res.reverse()
-#
-#     a1p_res.reverse()
-#     a2p_res.reverse()
-#     a3p_res.reverse()
-#     a1m_res.reverse()
-#     a2m_res.reverse()
-#     a3m_res.reverse()
-#     return alpha_res, h_res, g_res, a1p_res, a2p_res, a3p_res, a1m_res, a2m_res, a3m_res
+def trajectory_new(alphaT, gT, hT, pioo, pip, pim, muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp,
+                   muttm,time):  # new p
+    alpha_res = []
+    g_res = []
+    h_res = []
+
+    a1p_res = []
+    a2p_res = []
+    a3p_res = []
+    a1m_res = []
+    a2m_res = []
+    a3m_res = []
+
+    alpha = alphaT
+    g = gT
+    h = hT
+    for k in range(len(time) - 1):
+        a1p = BT.A1p(alpha, pioo, pip, pim, muop, muom, mutp, mutm)
+        a1m = BT.A1m(alpha, pioo, pip, pim, muop, muom, mutp, mutm)
+        a2p = BT.A2p(alpha, pioo, pip, pim, muop, muom, mutp, mutm, muoop, muoom, mutop, mutom)
+        a2m = BT.A2m(alpha, pioo, pip, pim, muop, muom, mutp, mutm, muoop, muoom, mutop, mutom)
+        # a3p = BT.A3p(alpha, pioo, pip, pim, muop, muom, mutp, mutm, Deltap, Deltam, h)
+        # a3m = BT.A3m(alpha, pioo, pip, pim, muop, muom, mutp, mutm, Deltap, Deltam, h)
+        a3p = BT.A3p_new(alpha, pioo, pip, pim, muop, muom, mutp, mutm, h)
+        a3m = BT.A3m_new(alpha, pioo, pip, pim, muop, muom, mutp, mutm, h)
+
+        a1p_res.append(a1p)
+        a2p_res.append(a2p)
+        a3p_res.append(a3p)
+        a1m_res.append(a1m)
+        a2m_res.append(a2m)
+        a3m_res.append(a3m)
+
+        alpha = BT.alpha_updt(alpha, pioo, pip, pim, muop, muom, mutp, mutm, a1p, a1m)
+        # h = BT.h_updt(alpha, pioo, pip, pim, muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, Deltap, Deltam, h, a1p,
+        #            a1m,
+        #            a2p, a2m, a3p, a3m)
+
+        h = BT.h_updt_new(alpha, pioo, pip, pim, muop, muom, mutp, mutm, muoop, muoom, mutop,mutom, h, a1p, a1m, a2p, a2m,
+                          a3p, a3m)
+
+        # g = BT.g_updt(alpha, pioo, pip, pim, muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, Deltap,
+        #            Deltam,
+        #            h, g, sigmap, sigmam, tldsigma, acttime_res[k], acttime_res[k + 1], a2p, a2m, a3p, a3m)
+
+        g = BT.g_updt_new(alpha, pioo, pip, pim, muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm,
+                          h, g, a2p, a2m, a3p, a3m)
+
+        alpha_res.append(alpha)
+        h_res.append(h)
+        g_res.append(g)
+
+    alpha_res.reverse()
+    h_res.reverse()
+    g_res.reverse()
+
+    a1p_res.reverse()
+    a2p_res.reverse()
+    a3p_res.reverse()
+    a1m_res.reverse()
+    a2m_res.reverse()
+    a3m_res.reverse()
+    return alpha_res, h_res, g_res, a1p_res, a2p_res, a3p_res, a1m_res, a2m_res, a3m_res
 
 
-# time = acttime_est.copy()
-# # time.append(57600)
-# time.append(57600-1800)
-# time = time[::-1]
-# # alpha_res, h_res, g_res, a1p_res, a2p_res, a3p_res, a1m_res, a2m_res, a3m_res = trajectory(alphaT, pip, pim, pioo, Deltap, Deltam, sigmap, sigmam, tldsigma, time)
-# alpha_res, h_res, g_res, a1p_res, a2p_res, a3p_res, a1m_res, a2m_res, a3m_res = trajectory_new(alphaT, gT, hT, pioo,
-#                                                                                                pip, pim, muop, muom,
-#                                                                                                mutp, mutm, muoop, muoom,
-#                                                                                                mutop, mutom, muttp,
-#                                                                                                muttm,time)
+time = acttime_est.copy()
+# time.append(57600)
+time.append(57600-1800)
+time = time[::-1]
+# alpha_res, h_res, g_res, a1p_res, a2p_res, a3p_res, a1m_res, a2m_res, a3m_res = trajectory(alphaT, pip, pim, pioo, Deltap, Deltam, sigmap, sigmam, tldsigma, time)
+alpha_res, h_res, g_res, a1p_res, a2p_res, a3p_res, a1m_res, a2m_res, a3m_res = trajectory_new(alphaT, gT, hT, pioo,
+                                                                                               pip, pim, muop, muom,
+                                                                                               mutp, mutm, muoop, muoom,
+                                                                                               mutop, mutom, muttp,
+                                                                                               muttm,time)
 
 def executed(p_a, p_b, message, order_size):
     # accumulative number of executions during dt time slot given the price of limit orders placed at the beginning of dt
@@ -766,8 +950,8 @@ liquid_cost = [[] for _ in range(l + 1)]
 ST = []
 day_count = 0
 #0401,0425,0430
-bk = 'Data.nosync/MSFT/MSFT_book_041219.csv'
-msg = 'Data.nosync/MSFT/MSFT_orders_041219.csv'
+# bk = 'Data.nosync/MSFT/MSFT_book_041219.csv'
+# msg = 'Data.nosync/MSFT/MSFT_orders_041219.csv'
 #
 # bk ='Data/MSFT/MSFT_book_040119.csv'
 # msg = 'Data/MSFT/MSFT_orders_040119.csv'
@@ -789,13 +973,6 @@ for bk, msg in zip(f_book, f_msg):  # each day is an episode
         book_dat = pd.read_csv(bk, header=1)
         message_dat['Time'] = message_dat['Seconds'] + message_dat['Nanoseconds since last second'] * 10 ** -9
         book_dat['Time'] = book_dat['Seconds'] + book_dat['Nanoseconds'] * 10 ** -9
-
-
-        MA_pi = 100 # number of time slots to calculate pi. (MA)
-        message_dat = message_dat.loc[
-            (34200 + 23400 - 1800 >= message_dat.Time) & (message_dat.Time >= 34200 + 1800 - 3*MA_pi)] # Drop the first and last half hour data, but keep 300s before 10:00 in order to calculate moving average of pi
-        book_dat = book_dat.loc[
-            (34200 + 23400 - 1800 >= book_dat.Time) & (book_dat.Time >= 34200 + 1800- 3*MA_pi)]
 
         message_dat.Price = message_dat.Price / 100
         book_dat.loc[:,
@@ -826,34 +1003,7 @@ for bk, msg in zip(f_book, f_msg):  # each day is an episode
         MO_Plus = message_new_dat.loc[(message_new_dat['Order type'] == 'MO') & (message_new_dat['Direction'] == 83)]
         MO_Minus = message_new_dat.loc[(message_new_dat['Order type'] == 'MO') & (message_new_dat['Direction'] == 66)]
 
-        # Calculate pi_t (MA)
         ##################
-        # How many MOs falling in each action intervals
-        acttime_temp = list(range(34200+1800-3*MA_pi, 34200 + 23400 - 1800 + 3, 3))
-        count_plus = np.histogram(MO_Plus.Time, bins=acttime_temp)[0]  # left closed right open
-        count_minus = np.histogram(MO_Minus.Time, bins=acttime_temp)[0]
-
-        # Moving Average
-        rolling_mean_plus = pd.Series(count_plus != 0).rolling(window=100).mean().iloc[100:]
-        rolling_mean_minus = pd.Series(count_minus != 0).rolling(window=100).mean().iloc[100:]
-        rolling_mean_oo = pd.Series((count_minus != 0)&(count_plus != 0)).rolling(window=100).mean().iloc[100:]
-
-        # Delete the first 300s after obtaining pi_t
-        message_dat = message_dat.loc[
-            (34200 + 23400 - 1800 >= message_dat.Time) & (
-                        message_dat.Time >= 34200 + 1800)]  # Drop the first and last half hour data, but keep 300s before 10:00 in order to calculate moving average of pi
-        book_dat = book_dat.loc[
-            (34200 + 23400 - 1800 >= book_dat.Time) & (book_dat.Time >= 34200 + 1800)]
-
-        message_new_dat = message_new_dat.loc[(34200 + 23400 - 1800 >= message_new_dat.Time) & (message_new_dat.Time >= 34200 + 1800)]
-        book_new_dat = book_new_dat.loc[
-            (34200 + 23400 - 1800 >= book_new_dat.Time) & (book_new_dat.Time >= 34200 + 1800)]
-
-        MO_Plus =  MO_Plus.loc[(34200 + 23400 - 1800 >=  MO_Plus.Time) & ( MO_Plus.Time >= 34200 + 1800)]
-        MO_Minus = MO_Minus.loc[(34200 + 23400 - 1800 >= MO_Minus.Time) & (MO_Minus.Time >= 34200 + 1800)]
-        ##################
-        alpha_res, h_res, g_res, a1p_res, a2p_res, a3p_res, a1m_res, a2m_res, a3m_res = BT.trajectory_new_v2(alphaT, gT, hT, rolling_mean_plus, rolling_mean_minus, rolling_mean_oo, muop, muom, mutp, mutm, muoop, muoom, mutop, mutom, muttp, muttm, acttime_est)
-
         output = Benchmark_reward_intraday(l, W0, I0, message_new_dat, book_dat, acttime_est, order_size, a1p_res,
                                            a2p_res, a3p_res, a1m_res, a2m_res, a3m_res)
         for i in range(l + 1):
